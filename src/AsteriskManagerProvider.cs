@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.AsteriskManager.Configuration;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Sufficit.AsteriskManager
@@ -95,7 +96,13 @@ namespace Sufficit.AsteriskManager
         #endregion
         #region FUNÇÕES BASICAS DA CONEXAO
 
-        public async Task Connect(bool KeepAlive = true)
+        /// <summary>
+        /// Realiza a conexão com o servidor caso ela ainda não esteja aberta
+        /// </summary>
+        /// <param name="KeepAlive"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public async Task Connect(bool KeepAlive = true, CancellationToken cancellationToken = default)
         {
             if (!_connection.IsConnected())
             {
@@ -105,16 +112,16 @@ namespace Sufficit.AsteriskManager
                 _connection.ReconnectIntervalMax = 30000; // 30 segundos
                 _connection.DefaultEventTimeout = _connection.DefaultResponseTimeout = 10000;
 
-                await Task.Run(() => { lock (_lockSwitchConnection) _connection.Login(); });
+                await Task.Run(() => { lock (_lockSwitchConnection) _connection.Login(); }, cancellationToken);
                 _logger?.LogInformation("MANAGER: " + _connection.Version + " ; ASTERISK: " + _connection.AsteriskVersion);
             }
         }
 
-        public async Task Disconnect()
+        public async Task Disconnect(CancellationToken cancellationToken = default)
         {
             if (_connection.IsConnected())
             {
-                await Task.Run(() => { lock (_lockSwitchConnection) _connection.Logoff(); });               
+                await Task.Run(() => { lock (_lockSwitchConnection) _connection.Logoff(); }, cancellationToken);               
             }
         }
 
