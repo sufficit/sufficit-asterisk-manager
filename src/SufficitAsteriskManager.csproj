@@ -36,8 +36,8 @@
   </PropertyGroup>
 
   <ItemGroup Label="Sufficit Dependencies">
-    <PackageReference Include="Sufficit.AsteriskManager.Core" Version="1.21.927.958" />
-    <PackageReference Include="Sufficit.AsterNETFork" Version="1.21.615.1646" />
+    <PackageReference Include="Sufficit.AsteriskManager.Core" Version="1.21.*" />
+    <PackageReference Include="Sufficit.AsterNETFork" Version="1.21.*" />
   </ItemGroup>
   
   <ItemGroup>
