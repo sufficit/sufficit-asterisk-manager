@@ -11,7 +11,10 @@ namespace Sufficit.AsteriskManager
     /// Facilita no rastreamento e visualização dos eventos
     /// </summary>
     public class AMIConnection : ManagerConnection
-    {
+    {        
+        /// <summary>
+        /// Titulo do provedor
+        /// </summary>
         public string Title { get; }
 
         public AMIConnection(AMIProviderOptions options) : base(options.Address, options.Port, options.User, options.Password)
