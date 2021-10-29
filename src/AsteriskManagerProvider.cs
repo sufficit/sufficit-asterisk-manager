@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Sufficit.AsteriskManager
 {
-    public class AsteriskManagerProvider : IAMIProvider
+    public class AsteriskManagerProvider : IAMIProvider, IDisposable
     {
         #region IMPLEMENTAÇÃO DA INTEFACE IAMIProvider
 
@@ -122,6 +122,18 @@ namespace Sufficit.AsteriskManager
             if (_connection.IsConnected())
             {
                 await Task.Run(() => { lock (_lockSwitchConnection) _connection.Logoff(); }, cancellationToken);               
+            }
+        }
+
+        /// <summary>
+        /// Tenta desfazer a conexão caso não esteja programado para usar o keepalive
+        /// </summary>
+        public async void Dispose()
+        {
+            if (!_options.KeepAlive)
+            {
+                try { await Disconnect(); }
+                catch { }
             }
         }
 
