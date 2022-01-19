@@ -70,20 +70,10 @@ namespace Sufficit.AsteriskManager
 
         #region CONSTRUTORES
 
-        /// <summary>
-        /// Usado pelo sistema de Dependency injection
-        /// </summary>
-        /// <param name="logger"></param>
-        /// <param name="config"></param>
-        public AsteriskManagerProvider(IOptions<AMIProviderOptions> options, ILogger<AsteriskManagerProvider> logger) : this(options.Value, logger)
-        {            
-            _logger?.LogInformation("Asterisk Manager Provider by dependency injection");
-        }
-
-        public AsteriskManagerProvider(AMIProviderOptions options, ILogger logger = default)
+        public AsteriskManagerProvider(IOptions<AMIProviderOptions> options, ILogger<AsteriskManagerProvider> logger)
         {
             _logger = logger;
-            _options = options;
+            _options = options.Value;
 
             _connection = new AMIConnection(_options);
             _connection.FireAllEvents = false;
@@ -130,12 +120,17 @@ namespace Sufficit.AsteriskManager
         /// </summary>
         public async void Dispose()
         {
-            if (!_options.KeepAlive)
+            if (!_options.KeepAlive) // se não for para manter aberto
             {
-                try { await Disconnect(); }
-                catch { }
+                if (_connection != null) // se não for nula a conexão
+                {
+                    if (_connection.IsConnected()) // se ainda estiver connectado
+                    {
+                        try { await Disconnect(); } catch { }
+                    }
+                }
             }
-        }
+        }        
 
         #endregion
         #region EVENTS
