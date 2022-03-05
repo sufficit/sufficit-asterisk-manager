@@ -35,17 +35,20 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
 
+	<!-- 
   <ItemGroup Label="Sufficit Dependencies">
-    <PackageReference Include="Sufficit.AsteriskManager.Core" Version="1.21.*" />
+    <PackageReference Include="Sufficit.AsteriskManager.Core" Version="1.21.*" /> 
     <PackageReference Include="Sufficit.AsterNETFork" Version="1.21.*" />
   </ItemGroup>
-  
+  -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="5.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="6.0.0" />
   </ItemGroup>
   
   <ItemGroup>
+	  <ProjectReference Include="..\..\sufficit-asternet-fork\Asterisk.2013\Asterisk.NET\AsterNET.csproj" />
+	  <ProjectReference Include="..\..\sufficit-asternet-core\src\AsterNET.Core.csproj" />
     <ProjectReference Include="..\..\sufficit-asteriskmanager-core\src\SufficitAsteriskManagerCore.csproj" />
   </ItemGroup>
 
