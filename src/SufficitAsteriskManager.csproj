@@ -2,7 +2,7 @@
 
   <PropertyGroup Label="Targeting">
     <TargetFramework>netstandard2.0</TargetFramework>
-    <RootNamespace>Sufficit.AsteriskManager</RootNamespace>
+    <RootNamespace>Sufficit.Asterisk.Manager</RootNamespace>
   </PropertyGroup>
 
   <PropertyGroup Label="Sufficit Versioning">
@@ -18,7 +18,7 @@
     <Authors>Sufficit</Authors>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <ProductName>Sufficit Asterisk Manager</ProductName>
-    <AssemblyName>SufficitAsteriskManager</AssemblyName>
+    <AssemblyName>Sufficit.Asterisk.Manager</AssemblyName>
 
     <!-- Copia todas as dlls de dependencias para o diretório de publicação dos projetos que o utilizam -->
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -29,31 +29,45 @@
 
   <PropertyGroup Label="Sufficit Pacote NUGET">
     <Name>Sufficit.AsteriskManager</Name>
-    <PackageId>Sufficit.AsteriskManager</PackageId>
+    <PackageId>Sufficit.Asterisk.Manager</PackageId>
     <PackageDescription></PackageDescription>
-    <RepositoryUrl>https://github.com/sufficit/sufficit-asteriskmanager</RepositoryUrl>
-    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <RepositoryUrl>https://github.com/sufficit/sufficit-asterisk-manager</RepositoryUrl>
+	  <PackageProjectUrl>https://github.com/sufficit/sufficit-asterisk-manager</PackageProjectUrl>
+	  <PackageIconUrl>https://raw.githubusercontent.com/sufficit/sufficit-asterisk-manager/main/icon.ico</PackageIconUrl>
+	  <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+
+	  <PackageLicenseFile>license</PackageLicenseFile>
+	  <PackageReadmeFile>readme.md</PackageReadmeFile>
+	  <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
 
-	<!-- 
-  <ItemGroup Label="Sufficit Dependencies">
-    <PackageReference Include="Sufficit.AsteriskManager.Core" Version="1.21.*" /> 
-    <PackageReference Include="Sufficit.AsterNETFork" Version="1.21.*" />
-  </ItemGroup>
-  -->
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.1" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="6.0.0" />
   </ItemGroup>
+
+	<ItemGroup>
+		<None Include="../icon.png">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+		<None Include="../license">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+		<None Include="../readme.md">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+	</ItemGroup>
 	
 	<ItemGroup Label="Sufficit Dependencies">
       <PackageReference Include="Sufficit.AsterNET.Core" Version="1.22.*" />
-	  <PackageReference Include="Sufficit.AsteriskManager.Core" Version="1.22.*" />
+	  <PackageReference Include="Sufficit.Asterisk.Manager.Core" Version="1.22.*" />
 	</ItemGroup>
 	
   <ItemGroup>
 	<ProjectReference Include="..\..\sufficit-asternet-fork\Asterisk.2013\Asterisk.NET\AsterNET.csproj" />	  
-    <ProjectReference Include="..\..\sufficit-asteriskmanager-core\src\SufficitAsteriskManagerCore.csproj" />
   </ItemGroup>
 
 </Project>
