@@ -62,12 +62,9 @@
 	</ItemGroup>
 	
 	<ItemGroup Label="Sufficit Dependencies">
+	  <PackageReference Include="Sufficit.AsterNETFork" Version="1.22.*" />
       <PackageReference Include="Sufficit.AsterNET.Core" Version="1.22.*" />
 	  <PackageReference Include="Sufficit.Asterisk.Manager.Core" Version="1.22.*" />
 	</ItemGroup>
-	
-  <ItemGroup>
-	<ProjectReference Include="..\..\sufficit-asternet-fork\Asterisk.2013\Asterisk.NET\AsterNET.csproj" />	  
-  </ItemGroup>
 
 </Project>
