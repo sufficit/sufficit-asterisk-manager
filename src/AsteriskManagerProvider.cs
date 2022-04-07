@@ -1,12 +1,12 @@
 ﻿using AsterNET.Manager;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Sufficit.AsteriskManager.Configuration;
+using Sufficit.Asterisk.Manager.Configuration;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Sufficit.AsteriskManager
+namespace Sufficit.Asterisk.Manager
 {
     public class AsteriskManagerProvider : IAMIProvider, IDisposable
     {

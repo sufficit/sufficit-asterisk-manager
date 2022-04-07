@@ -28,17 +28,17 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Sufficit Pacote NUGET">
-    <Name>Sufficit.AsteriskManager</Name>
+	<Name>Sufficit.Asterisk.Manager</Name>
     <PackageId>Sufficit.Asterisk.Manager</PackageId>
     <PackageDescription></PackageDescription>
     <RepositoryUrl>https://github.com/sufficit/sufficit-asterisk-manager</RepositoryUrl>
-	  <PackageProjectUrl>https://github.com/sufficit/sufficit-asterisk-manager</PackageProjectUrl>
-	  <PackageIconUrl>https://raw.githubusercontent.com/sufficit/sufficit-asterisk-manager/main/icon.ico</PackageIconUrl>
-	  <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+	<PackageProjectUrl>https://github.com/sufficit/sufficit-asterisk-manager</PackageProjectUrl>
+	<PackageIconUrl>https://raw.githubusercontent.com/sufficit/sufficit-asterisk-manager/main/icon.ico</PackageIconUrl>
+	<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
 
-	  <PackageLicenseFile>license</PackageLicenseFile>
-	  <PackageReadmeFile>readme.md</PackageReadmeFile>
-	  <PackageIcon>icon.png</PackageIcon>
+	<PackageLicenseFile>license</PackageLicenseFile>
+	<PackageReadmeFile>readme.md</PackageReadmeFile>
+	<PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -62,9 +62,17 @@
 	</ItemGroup>
 	
 	<ItemGroup Label="Sufficit Dependencies">
-	  <PackageReference Include="Sufficit.AsterNETFork" Version="1.22.*" />
-      <PackageReference Include="Sufficit.AsterNET.Core" Version="1.22.*" />
-	  <PackageReference Include="Sufficit.Asterisk.Manager.Core" Version="1.22.*" />
+	</ItemGroup>
+	
+	<ItemGroup Label="Sufficit Dependencies on Release" Condition="'$(Configuration)' == 'Production'">
+		<PackageReference Include="Sufficit.AsterNETFork" Version="1.22.*" />
+		<PackageReference Include="Sufficit.AsterNET.Core" Version="1.22.*" />
+		<PackageReference Include="Sufficit.Asterisk.Manager.Core" Version="1.22.*" />
 	</ItemGroup>
 
+	<ItemGroup Label="Sufficit Dependencies on Debug">
+		<ProjectReference Include="..\..\sufficit-asternet-fork\Asterisk.2013\Asterisk.NET\AsterNet.csproj" />
+		<ProjectReference Include="..\..\sufficit-asternet-core\src\Sufficit.AsterNet.Core.csproj" />
+		<ProjectReference Include="..\..\sufficit-asterisk-manager-core\src\Sufficit.Asterisk.Manager.Core.csproj" />		
+	</ItemGroup>
 </Project>

@@ -1,10 +1,10 @@
 ﻿using AsterNET.Manager;
-using Sufficit.AsteriskManager.Configuration;
+using Sufficit.Asterisk.Manager.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Sufficit.AsteriskManager
+namespace Sufficit.Asterisk.Manager
 {
     /// <summary>
     /// Extende do ManagerConnection normal, serve unicamente para incluir um titulo para o servidor <br />
