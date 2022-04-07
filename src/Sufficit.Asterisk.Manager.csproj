@@ -64,13 +64,13 @@
 	<ItemGroup Label="Sufficit Dependencies">
 	</ItemGroup>
 	
-	<ItemGroup Label="Sufficit Dependencies on Release" Condition="'$(Configuration)' == 'Production'">
+	<ItemGroup Label="Sufficit Dependencies on Release" Condition="'$(Configuration)' == 'Release'">
 		<PackageReference Include="Sufficit.AsterNETFork" Version="1.22.*" />
 		<PackageReference Include="Sufficit.AsterNET.Core" Version="1.22.*" />
 		<PackageReference Include="Sufficit.Asterisk.Manager.Core" Version="1.22.*" />
 	</ItemGroup>
 
-	<ItemGroup Label="Sufficit Dependencies on Debug">
+	<ItemGroup Label="Sufficit Dependencies on Debug" Condition="'$(Configuration)' == 'Debug'">
 		<ProjectReference Include="..\..\sufficit-asternet-fork\Asterisk.2013\Asterisk.NET\AsterNet.csproj" />
 		<ProjectReference Include="..\..\sufficit-asternet-core\src\Sufficit.AsterNet.Core.csproj" />
 		<ProjectReference Include="..\..\sufficit-asterisk-manager-core\src\Sufficit.Asterisk.Manager.Core.csproj" />		
