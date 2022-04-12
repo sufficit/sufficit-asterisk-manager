@@ -76,7 +76,7 @@ namespace Sufficit.Asterisk.Manager
             _options = options.Value;
 
             _connection = new AMIConnection(_options);
-            _connection.FireAllEvents = false;
+            _connection.FireAllEvents = true;
             _connection.UseASyncEvents = true;
 
             // Expondo eventos

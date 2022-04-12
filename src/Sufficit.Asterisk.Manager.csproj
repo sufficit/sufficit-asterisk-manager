@@ -15,7 +15,7 @@
 
   <PropertyGroup Label="Sufficit Product General">
     <Company>SUFFICIT SOLUÇÕES EM TECNOLOGIA DA INFORMAÇÃO</Company>
-    <Authors>Sufficit</Authors>
+    <Authors>Hugo Castro de Deco</Authors>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <ProductName>Sufficit Asterisk Manager</ProductName>
     <AssemblyName>Sufficit.Asterisk.Manager</AssemblyName>
@@ -61,18 +61,13 @@
 		</None>
 	</ItemGroup>
 	
-	<ItemGroup Label="Sufficit Dependencies">
-	</ItemGroup>
-	
-	<ItemGroup Label="Sufficit Dependencies on Release" Condition="'$(Configuration)' == 'Release'">
+	<ItemGroup Label="Sufficit Dependencies on Packing" Condition=" '$(Configuration)' == 'Packing' ">
 		<PackageReference Include="Sufficit.AsterNETFork" Version="1.22.*" />
-		<PackageReference Include="Sufficit.AsterNET.Core" Version="1.22.*" />
-		<PackageReference Include="Sufficit.Asterisk.Manager.Core" Version="1.22.*" />
+		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.22.*" />
 	</ItemGroup>
 
-	<ItemGroup Label="Sufficit Dependencies on Debug" Condition="'$(Configuration)' == 'Debug'">
+	<ItemGroup Label="Sufficit Local Dependencies" Condition=" '$(Configuration)' != 'Packing' ">
 		<ProjectReference Include="..\..\sufficit-asternet-fork\Asterisk.2013\Asterisk.NET\AsterNet.csproj" />
-		<ProjectReference Include="..\..\sufficit-asternet-core\src\Sufficit.AsterNet.Core.csproj" />
-		<ProjectReference Include="..\..\sufficit-asterisk-manager-core\src\Sufficit.Asterisk.Manager.Core.csproj" />		
+		<ProjectReference Include="..\..\sufficit-asterisk-core\src\Sufficit.Asterisk.Core.csproj" />		
 	</ItemGroup>
 </Project>
