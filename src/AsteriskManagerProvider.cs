@@ -70,13 +70,13 @@ namespace Sufficit.Asterisk.Manager
 
         #region CONSTRUTORES
 
-        public AsteriskManagerProvider(IOptions<AMIProviderOptions> options, ILogger<AsteriskManagerProvider> logger)
+        public AsteriskManagerProvider(IOptions<AMIProviderOptions> options, ILogger<AsteriskManagerProvider> logger, ILogger<ManagerConnection> logManager)
         {
             _logger = logger;
             _options = options.Value;
 
-            _connection = new AMIConnection(_options);
-            _connection.FireAllEvents = true;
+            _connection = new AMIConnection(logManager, _options);
+            _connection.FireAllEvents = false;
             _connection.UseASyncEvents = true;
 
             // Expondo eventos

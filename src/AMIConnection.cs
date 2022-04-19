@@ -1,4 +1,5 @@
 ﻿using AsterNET.Manager;
+using Microsoft.Extensions.Logging;
 using Sufficit.Asterisk.Manager.Configuration;
 using System;
 using System.Collections.Generic;
@@ -17,7 +18,7 @@ namespace Sufficit.Asterisk.Manager
         /// </summary>
         public string Title { get; }
 
-        public AMIConnection(AMIProviderOptions options) : base(options.Address, options.Port, options.User, options.Password)
+        public AMIConnection(ILogger<ManagerConnection> logger, AMIProviderOptions options) : base(logger, options.Address, options.Port, options.User, options.Password)
         {
             Title = options.Title;
         }
