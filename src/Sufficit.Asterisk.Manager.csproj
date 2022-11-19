@@ -1,18 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup Label="Targeting">
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <RootNamespace>Sufficit.Asterisk.Manager</RootNamespace>
-    <Configurations>Debug;Release;Packing</Configurations>
-  </PropertyGroup>
+	<PropertyGroup Label="Sufficit Targeting">
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<RootNamespace>Sufficit.Asterisk.Manager</RootNamespace>
+		<LangVersion>8.0</LangVersion>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
 
-  <PropertyGroup Label="Sufficit Versioning">
-    <VersionSuffix>1.$([System.DateTime]::UtcNow.ToString(yy)).$([System.DateTime]::UtcNow.ToString(MMdd)).$([System.DateTime]::UtcNow.ToString(HHmm))</VersionSuffix>
-    <AssemblyVersion Condition=" '$(VersionSuffix)' == '' ">1.0.0.0</AssemblyVersion>
-    <AssemblyVersion Condition=" '$(VersionSuffix)' != '' ">$(VersionSuffix)</AssemblyVersion>
-    <Version Condition=" '$(VersionSuffix)' == '' ">0.0.1.0</Version>
-    <Version Condition=" '$(VersionSuffix)' != '' ">$(VersionSuffix)</Version>
-  </PropertyGroup>
+	<PropertyGroup Label="Sufficit Versioning">
+		<VersionSuffix>1.$([System.DateTime]::UtcNow.ToString(yy)).$([System.DateTime]::UtcNow.ToString(MMdd)).$([System.DateTime]::UtcNow.ToString(HHmm))</VersionSuffix>
+		<AssemblyVersion Condition=" '$(VersionSuffix)' == '' ">1.0.0.0</AssemblyVersion>
+		<AssemblyVersion Condition=" '$(VersionSuffix)' != '' ">$(VersionSuffix)</AssemblyVersion>
+		<Version Condition=" '$(VersionSuffix)' == '' ">0.0.1.0</Version>
+		<Version Condition=" '$(VersionSuffix)' != '' ">$(VersionSuffix)</Version>
+	</PropertyGroup>
 
   <PropertyGroup Label="Sufficit Product General">
     <Company>SUFFICIT SOLUÇÕES EM TECNOLOGIA DA INFORMAÇÃO</Company>
@@ -43,8 +45,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="7.0.0" />
   </ItemGroup>
 
 	<ItemGroup>
@@ -63,12 +65,12 @@
 	</ItemGroup>
 	
 	<ItemGroup Label="Sufficit Dependencies on Packing" Condition=" '$(Configuration)' == 'Packing' ">
-		<PackageReference Include="Sufficit.AsterNETFork" Version="1.22.*" />
+		<PackageReference Include="Sufficit.AsterNET" Version="1.22.*" />
 		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.22.*" />
 	</ItemGroup>
 
 	<ItemGroup Label="Sufficit Local Dependencies" Condition=" '$(Configuration)' != 'Packing' ">
 		<ProjectReference Include="..\..\sufficit-asterisk-core\src\Sufficit.Asterisk.Core.csproj" />
-		<ProjectReference Include="..\..\sufficit-asternet-fork\Asterisk.2013\Asterisk.NET\AsterNET.csproj" />	
+		<ProjectReference Include="..\..\sufficit-asternet\Asterisk.2013\Asterisk.NET\Sufficit.AsterNET.csproj" />	
 	</ItemGroup>
 </Project>
