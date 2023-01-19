@@ -65,8 +65,8 @@
 	</ItemGroup>
 	
 	<ItemGroup Label="Sufficit Dependencies on Packing" Condition=" '$(Configuration)' == 'Packing' ">
-		<PackageReference Include="Sufficit.AsterNET" Version="1.22.*" />
-		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.22.*" />
+		<PackageReference Include="Sufficit.AsterNET" Version="1.*" />
+		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.*" />
 	</ItemGroup>
 
 	<ItemGroup Label="Sufficit Local Dependencies" Condition=" '$(Configuration)' != 'Packing' ">
