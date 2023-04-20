@@ -1,4 +1,5 @@
-﻿using AsterNET.Manager;
+﻿using AsterNET.Helpers;
+using AsterNET.Manager;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.Asterisk.Manager.Configuration;
@@ -23,7 +24,7 @@ namespace Sufficit.Asterisk.Manager
                 _enabled = value;
 
                 // Aciona de forma assíncrona o processo de mudança de estado, caso necessário
-                switchConnection(_enabled);
+                SwitchConnection(_enabled);
             }
         }
 
@@ -34,7 +35,7 @@ namespace Sufficit.Asterisk.Manager
         /// </summary>
         public ManagerConnection Connection => _connection;
 
-        private async void switchConnection(bool on)
+        private async void SwitchConnection(bool on)
         {
             bool connected = false;
             lock (_lockSwitchConnection) connected = _connection.IsConnected();
