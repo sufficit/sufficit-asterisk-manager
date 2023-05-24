@@ -1,5 +1,4 @@
-﻿using AsterNET.Helpers;
-using AsterNET.Manager;
+﻿using AsterNET.Manager;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.Asterisk.Manager.Configuration;
