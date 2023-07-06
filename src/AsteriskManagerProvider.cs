@@ -89,10 +89,7 @@ namespace Sufficit.Asterisk.Manager
         /// <summary>
         /// Realiza a conexão com o servidor caso ela ainda não esteja aberta
         /// </summary>
-        /// <param name="KeepAlive"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        public async Task Connect(bool KeepAlive = true, CancellationToken cancellationToken = default)
+        public async ValueTask<ManagerConnection> Connect(bool KeepAlive = true, CancellationToken cancellationToken = default)
         {
             if (!_connection.IsConnected())
             {
@@ -101,10 +98,14 @@ namespace Sufficit.Asterisk.Manager
                 _connection.ReconnectRetryMax = int.MaxValue;
                 _connection.ReconnectIntervalMax = 30000; // 30 segundos
                 _connection.DefaultEventTimeout = _connection.DefaultResponseTimeout = 10000;
+                
+                // lock (_lockSwitchConnection)
+                await  _connection.Login(cancellationToken);
 
-                await Task.Run(() => { lock (_lockSwitchConnection) _connection.Login(); }, cancellationToken);
                 _logger.LogInformation("MANAGER: " + _connection.Version + " ; ASTERISK: " + _connection.AsteriskVersion);
             }
+
+            return _connection;
         }
 
         public async Task Disconnect(CancellationToken cancellationToken = default)
