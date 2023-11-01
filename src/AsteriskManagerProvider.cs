@@ -10,6 +10,11 @@ namespace Sufficit.Asterisk.Manager
 {
     public class AsteriskManagerProvider : IAMIProvider, IDisposable
     {
+        /// <summary>
+        ///     Individual options for this provider
+        /// </summary>
+        public AMIProviderOptions Options { get; internal set; }
+
         #region IMPLEMENTAÇÃO DA INTEFACE IAMIProvider
 
         public bool Enabled 
@@ -39,7 +44,7 @@ namespace Sufficit.Asterisk.Manager
             bool connected = false;
             lock (_lockSwitchConnection) connected = _connection.IsConnected();
 
-            if (on && !connected) await Connect(_options.KeepAlive);
+            if (on && !connected) await Connect(Options.KeepAlive);
             else if (!on && connected) await Disconnect();
         }
 
@@ -48,7 +53,7 @@ namespace Sufficit.Asterisk.Manager
         /// <summary>
         /// Titulo do provedor, usado para prefixar logs
         /// </summary>
-        public string Title => _options.Title;
+        public string Title => Options.Title;
 
         /// <summary>
         /// Conexão com o Asterisk
@@ -60,10 +65,6 @@ namespace Sufficit.Asterisk.Manager
         /// </summary>
         private readonly ILogger _logger;
 
-        /// <summary>
-        /// Configurações individuais desse provedor
-        /// </summary>
-        private readonly AMIProviderOptions _options;
 
         /// <summary>
         /// Lock for connection on thread safe
@@ -76,9 +77,9 @@ namespace Sufficit.Asterisk.Manager
         {
             _lockSwitchConnection = new object();
             _logger = logger;
-            _options = options.Value;
+            Options = options.Value;
 
-            _connection = new AMIConnection(logManager, _options);
+            _connection = new AMIConnection(logManager, Options);
             _connection.FireAllEvents = false;
             _connection.UseASyncEvents = true;
         }
@@ -117,20 +118,14 @@ namespace Sufficit.Asterisk.Manager
         }
 
         /// <summary>
-        /// Tenta desfazer a conexão caso não esteja programado para usar o keepalive
+        /// Tenta desfazer a conexão
         /// </summary>
-        public async void Dispose()
+        public void Dispose()
         {
-            if (!_options.KeepAlive) // se não for para manter aberto
+            if (_connection != null) // se não for nula a conexão
             {
-                if (_connection != null) // se não for nula a conexão
-                {
-                    if (_connection.IsConnected()) // se ainda estiver connectado
-                    {
-                        try { await Disconnect(); } catch { }
-                    }
-                }
-            }
+                _connection.Dispose();
+            }            
         }        
 
         #endregion
