@@ -80,8 +80,8 @@ namespace Sufficit.Asterisk.Manager
             Options = options.Value;
 
             _connection = new AMIConnection(logManager, Options);
-            _connection.FireAllEvents = false;
-            _connection.UseASyncEvents = true;
+            _connection.Events.FireAllEvents = false;
+            _connection.Events.Async = true;
         }
 
         #endregion
