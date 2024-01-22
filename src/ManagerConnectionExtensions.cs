@@ -29,9 +29,11 @@ namespace Sufficit.Asterisk.Manager
 
         public static async Task GetQueueStatus(this ManagerConnection source, string queue, string member, CancellationToken cancellationToken)
         {
-            var action = new QueueStatusAction();
-            action.Queue = queue;
-            action.Member = member;
+            var action = new QueueStatusAction
+            {
+                Queue = queue,
+                Member = member
+            };
 
             var response = await source.SendActionAsync(action, cancellationToken);
             if (!response.IsSuccess())
