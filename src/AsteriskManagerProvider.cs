@@ -101,7 +101,7 @@ namespace Sufficit.Asterisk.Manager
                 _connection.DefaultEventTimeout = _connection.DefaultResponseTimeout = 10000;
                 
                 // lock (_lockSwitchConnection)
-                await  _connection.Login(cancellationToken);
+                await _connection.Login(cancellationToken);
 
                 _logger.LogInformation("MANAGER: " + _connection.Version + " ; ASTERISK: " + _connection.AsteriskVersion);
             }
