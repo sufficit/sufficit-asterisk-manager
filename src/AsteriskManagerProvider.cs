@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.Asterisk.Manager.Configuration;
 using System;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -35,14 +36,19 @@ namespace Sufficit.Asterisk.Manager
         #endregion
 
         /// <summary>
-        /// Muito inseguro, sendo usado temporáriamente
+        /// Muito inseguro, sendo usado temporáriamente <br />
+        /// Somente usado para exibir o status na página web Sufficit.Web.Telefonia.Asterisk.Manager
         /// </summary>
-        public ManagerConnection Connection => _connection;
+        [JsonIgnore]
+        public ManagerConnection? Connection => _connection;
+
+        public ValueTask<ManagerConnection> GetValidConnection(CancellationToken cancellationToken)
+            => Connect(false, cancellationToken);        
 
         private async void SwitchConnection(bool on)
         {
             bool connected = false;
-            lock (_lockSwitchConnection) connected = _connection.IsConnected();
+            lock (_lockSwitchConnection) connected = _connection?.IsConnected() ?? false;
 
             if (on && !connected) await Connect(Options.KeepAlive);
             else if (!on && connected) await Disconnect();
@@ -58,13 +64,13 @@ namespace Sufficit.Asterisk.Manager
         /// <summary>
         /// Conexão com o Asterisk
         /// </summary>
-        private readonly ManagerConnection _connection;
+        private ManagerConnection? _connection;
 
         /// <summary>
         /// Sistema de logs padrão
         /// </summary>
         private readonly ILogger _logger;
-
+        private readonly ILogger<ManagerConnection> _logmanager;
 
         /// <summary>
         /// Lock for connection on thread safe
@@ -79,21 +85,26 @@ namespace Sufficit.Asterisk.Manager
             _logger = logger;
             Options = options.Value;
 
-            _connection = new AMIConnection(logManager, Options);
-            _connection.Events.FireAllEvents = false;
-            _connection.Events.Async = true;
+            _logmanager = logManager;
         }
 
         #endregion
         #region FUNÇÕES BASICAS DA CONEXAO
 
         /// <summary>
-        /// Realiza a conexão com o servidor caso ela ainda não esteja aberta
+        ///     Realiza a conexão com o servidor caso ela ainda não esteja aberta
         /// </summary>
         public async ValueTask<ManagerConnection> Connect(bool KeepAlive = true, CancellationToken cancellationToken = default)
         {
-            if (!_connection.IsConnected())
+            if (_connection == null || _connection.IsDisposed)
             {
+                _connection = new AMIConnection(_logmanager, Options);
+                _connection.Events.FireAllEvents = false;
+                _connection.Events.Async = true;
+            }
+
+            if (!_connection.IsConnected())
+            {               
                 _connection.KeepAlive = KeepAlive;
                 _connection.KeepAliveAfterAuthenticationFailure = false;
                 _connection.ReconnectRetryMax = int.MaxValue;
@@ -103,7 +114,7 @@ namespace Sufficit.Asterisk.Manager
                 // lock (_lockSwitchConnection)
                 await _connection.Login(cancellationToken);
 
-                _logger.LogInformation("MANAGER: " + _connection.Version + " ; ASTERISK: " + _connection.AsteriskVersion);
+                _logger.LogInformation("MANAGER: {text}; ASTERISK: {enum}", _connection.Version, _connection.AsteriskVersion);
             }
 
             return _connection;
@@ -111,22 +122,33 @@ namespace Sufficit.Asterisk.Manager
 
         public async Task Disconnect(CancellationToken cancellationToken = default)
         {
-            if (_connection.IsConnected())
+            if (_connection?.IsConnected() ?? false)
             {
                 await _connection.LogOff(cancellationToken);               
             }
         }
 
+        #endregion
+        #region DISPOSING
+
         /// <summary>
-        /// Tenta desfazer a conexão
+        ///     Invoked when none of these resources are necessary anymore
         /// </summary>
         public void Dispose()
         {
-            if (_connection != null) // se não for nula a conexão
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            // se não for nula a conexão
+            if (_connection != null)
             {
                 _connection.Dispose();
-            }            
-        }        
+                _connection = null;
+            }
+        }
 
         #endregion
     }
