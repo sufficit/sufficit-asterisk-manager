@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup Label="Sufficit Targeting">
-		<TargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0</TargetFrameworks>
+		<TargetFrameworks>netstandard2.0;net7.0;net8.0;net9.0</TargetFrameworks>
 		<RootNamespace>Sufficit.Asterisk.Manager</RootNamespace>
 		<LangVersion>8.0</LangVersion>
 		<Nullable>enable</Nullable>
@@ -59,7 +59,11 @@
 		</None>
 	</ItemGroup>
 
-	<ItemGroup>
+	<PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+		<NoWarn>$(NoWarn);nullable</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup Condition=" '$(TargetFramework)' == 'net7.0' ">
 		<PackageReference Include="Microsoft.AspNetCore.Http.Connections.Common" Version="[*,9.0.0)" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="[*,9.0.0)" />
 		<PackageReference Include="Microsoft.Extensions.Logging" Version="[*,9.0.0)" />
@@ -68,7 +72,17 @@
 		<PackageReference Include="Microsoft.Extensions.Options" Version="[*,9.0.0)" />
 		<PackageReference Include="System.Text.Json" Version="[*,9.0.0)" />
 	</ItemGroup>
-	
+
+	<ItemGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' Or '$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net9.0' ">
+		<PackageReference Include="Microsoft.AspNetCore.Http.Connections.Common" Version="[*,10.0.0)" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="[*,10.0.0)" />
+		<PackageReference Include="Microsoft.Extensions.Logging" Version="[*,10.0.0)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[*,10.0.0)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="[*,10.0.0)" />
+		<PackageReference Include="Microsoft.Extensions.Options" Version="[*,10.0.0)" />
+		<PackageReference Include="System.Text.Json" Version="[*,10.0.0)" />
+	</ItemGroup>
+		
 	<ItemGroup Label="Sufficit Dependencies on Packing" Condition=" '$(Configuration)' == 'Packing' ">
 		<PackageReference Include="Sufficit.AsterNET" Version="1.*" />
 		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.*" />
