@@ -10,7 +10,7 @@ namespace Sufficit.Asterisk.Manager
 {
     public static class ManagerConnectionExtensions
     {
-        public static async Task Refresh(this ManagerConnection source, CancellationToken cancellationToken)
+        public static async Task Refresh (this ManagerConnection source, CancellationToken cancellationToken)
         {            
             {
                 var action = new SIPPeersAction();
@@ -26,7 +26,7 @@ namespace Sufficit.Asterisk.Manager
             }            
         }
 
-        public static async Task GetQueueStatus(this ManagerConnection source, string queue, string member, CancellationToken cancellationToken)
+        public static async Task GetQueueStatus (this ManagerConnection source, string queue, string member, CancellationToken cancellationToken)
         {
             var action = new QueueStatusAction
             {
@@ -37,6 +37,15 @@ namespace Sufficit.Asterisk.Manager
             var response = await source.SendActionAsync(action, cancellationToken);
             if (!response.IsSuccess())
                 throw new Exception($"error at executing {nameof(QueueStatusAction).ToLower()}");
+        }
+
+        public static async Task SIPShowRegistry(this ManagerConnection source, CancellationToken cancellationToken)
+        {
+            var action = new SIPShowRegistryAction();
+
+            var response = await source.SendActionAsync(action, cancellationToken);
+            if (!response.IsSuccess())
+                throw new Exception($"error at executing {nameof(SIPShowRegistryAction).ToLower()}");
         }
     }
 }
