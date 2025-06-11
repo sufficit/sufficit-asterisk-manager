@@ -66,13 +66,9 @@ namespace AsterNET.Manager.Action
         }
 
         /// <summary>
-        ///     Get/Set the name of the variable to set.
+        ///     Get/Set the name of the variable to query.
         /// </summary>
-        public string Variable
-        {
-            get { return varName; }
-            set { varName = value; }
-        }
+        public new string Variable { get; set; }
 
         /// <summary>
         ///     Get/Set the value to store.
