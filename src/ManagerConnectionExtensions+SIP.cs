@@ -1,11 +1,9 @@
 ﻿using AsterNET.Manager.Action;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
-using AsterNET.Manager;
 using Sufficit.Asterisk.Manager.Response;
+using Sufficit.Asterisk.Manager.Action;
+using Sufficit.Asterisk.Manager.Connection;
 
 namespace Sufficit.Asterisk.Manager
 {

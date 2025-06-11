@@ -1,15 +1,20 @@
 ﻿using AsterNET.Manager.Action;
+using Microsoft.Extensions.Logging;
+using Sufficit.Asterisk.Manager.Action;
+using Sufficit.Asterisk.Manager.Connection;
+using Sufficit.Asterisk.Manager.Response;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Threading.Tasks;
 using System.Threading;
-using AsterNET.Manager;
+using System.Threading.Tasks;
 
 namespace Sufficit.Asterisk.Manager
 {
     public static partial class ManagerConnectionExtensions
     {
+        private static readonly ILogger _logger = ManagerLogger.CreateLogger(typeof(ManagerConnectionExtensions));
+
         public static async Task Refresh (this ManagerConnection source, CancellationToken cancellationToken)
         {            
             {

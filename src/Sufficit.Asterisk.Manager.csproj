@@ -4,7 +4,7 @@
 	<PropertyGroup Label="Sufficit Targeting">
 		<TargetFrameworks>netstandard2.0;net7.0;net8.0;net9.0</TargetFrameworks>
 		<RootNamespace>Sufficit.Asterisk.Manager</RootNamespace>
-		<LangVersion>8.0</LangVersion>
+		<LangVersion>9.0</LangVersion>
 		<Nullable>enable</Nullable>
 		<Configurations>Debug;Release;Packing</Configurations>
 	</PropertyGroup>
@@ -45,6 +45,25 @@
 	<PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="Connection\**" />
+    <EmbeddedResource Remove="Connection\**" />
+    <None Remove="Connection\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Connection\ActionDispatcher.cs" />
+    <Compile Include="Connection\AMISocketManager.cs" />
+    <Compile Include="Connection\ConnectionAuthenticator.cs" />
+    <Compile Include="Connection\ConnectionLivenessMonitor.cs" />
+    <Compile Include="Connection\ConnectionReconnector.cs" />
+    <Compile Include="Connection\DisconnectEventArgs.cs" />
+    <Compile Include="Connection\IActionDispatcher.cs" />
+    <Compile Include="Connection\IAMISocketManager.cs" />
+    <Compile Include="Connection\ManagerConnection.cs" />
+    <Compile Include="Connection\ManagerReader.cs" />
+  </ItemGroup>
+
 	<ItemGroup>
 		<None Include="../icon.png">
 			<Pack>True</Pack>
@@ -72,6 +91,7 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="[*,9.0.0)" />
 		<PackageReference Include="Microsoft.Extensions.Options" Version="[*,9.0.0)" />
 		<PackageReference Include="System.Text.Json" Version="[*,9.0.0)" />
+		<PackageReference Include="System.Threading.Channels" Version="[*,9.0.0)" />
 	</ItemGroup>
 
 	<ItemGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' Or '$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net9.0' ">
@@ -82,6 +102,7 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="[*,10.0.0)" />
 		<PackageReference Include="Microsoft.Extensions.Options" Version="[*,10.0.0)" />
 		<PackageReference Include="System.Text.Json" Version="[*,10.0.0)" />
+		<PackageReference Include="System.Threading.Channels" Version="[*,10.0.0)" />
 	</ItemGroup>
 		
 	<ItemGroup Label="Sufficit Dependencies on Packing" Condition=" '$(Configuration)' == 'Packing' ">
@@ -92,5 +113,12 @@
 	<ItemGroup Label="Sufficit Local Dependencies" Condition=" '$(Configuration)' != 'Packing' ">
 		<ProjectReference Include="..\..\sufficit-asterisk-core\src\Sufficit.Asterisk.Core.csproj" />
 		<ProjectReference Include="..\..\sufficit-asternet\Asterisk.2013\Asterisk.NET\Sufficit.AsterNET.csproj" />	
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="IO\" />
+	</ItemGroup>
+
+	<ItemGroup>
 	</ItemGroup>
 </Project>
