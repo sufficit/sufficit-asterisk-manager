@@ -95,7 +95,7 @@ namespace Sufficit.Asterisk.Manager.Connection
         /// <inheritdoc cref="AMISocketManager.HandlePacketReceived(IDictionary{string, string})"/> 
         protected override void HandlePacketReceived(IDictionary<string, string> packet)
         {
-            _logger.LogWarning("on base packet received, count on channel: {count}, packet: {json}", _queueCounter, packet.ToJson());
+            //_logger.LogTrace("on base packet received, count on channel: {count}, packet: {json}", _queueCounter, packet.ToJson());
 
             // updating timestamp for liveness monitoring
             _livenessMonitor.LastMessageReceived = DateTime.UtcNow;
