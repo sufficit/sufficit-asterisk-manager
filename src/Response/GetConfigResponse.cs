@@ -13,7 +13,7 @@ namespace Sufficit.Asterisk.Manager.Response
     /// </summary>
     public class GetConfigResponse : ManagerResponse
     {
-        private static CultureInfo CultureInfo => Defaults.CultureInfo;
+        private static CultureInfo CultureInfo => Sufficit.Asterisk.Defaults.CultureInfo;
 
 
         private Dictionary<int, string>? categories;

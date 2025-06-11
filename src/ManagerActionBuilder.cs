@@ -15,7 +15,7 @@ namespace Sufficit.Asterisk.Manager
     public static partial class ManagerActionBuilder
     {
         private static readonly ILogger _logger = ManagerLogger.CreateLogger(typeof(ManagerActionBuilder));
-        private static CultureInfo CultureInfo => Defaults.CultureInfo;
+        private static CultureInfo CultureInfo => Sufficit.Asterisk.Defaults.CultureInfo;
 
         private static readonly string[] IgnoreKeys = { "class", "action", "actionid", "dictionary" };
         

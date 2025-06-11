@@ -17,7 +17,7 @@ namespace Sufficit.Asterisk.Manager
     {
         private static ILogger _logger = ManagerLogger.CreateLogger(typeof(ManagerResponseBuilder));
 
-        private static CultureInfo CultureInfo => Defaults.CultureInfo;
+        private static CultureInfo CultureInfo => Sufficit.Asterisk.Defaults.CultureInfo;
 
         public static ManagerResponseEvent BuildResponse (Type type, string actionId, IDictionary<string, string> buffer)
         {                        

@@ -10,7 +10,7 @@ namespace Sufficit.Asterisk.Manager
 {
     public static class ManagerResponseExtensions
     {
-        private static CultureInfo CultureInfo => Defaults.CultureInfo;
+        private static CultureInfo CultureInfo => Sufficit.Asterisk.Defaults.CultureInfo;
 
         /// <summary>
         ///     Throws an exception if the response is not successful.
