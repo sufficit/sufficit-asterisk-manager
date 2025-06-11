@@ -6,13 +6,9 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using AsterNET;
-using AsterNET.Manager.Event;
 using Microsoft.Extensions.Logging;
 using Sufficit.Asterisk.Manager.Connection;
 using Sufficit.Asterisk.Manager.Events;
-using Sufficit.Asterisk.Manager.Events.Abstracts;
-using Sufficit.Json;
 
 namespace Sufficit.Asterisk.Manager
 {

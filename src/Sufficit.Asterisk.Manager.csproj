@@ -52,6 +52,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="NotTested\Documentation\Asterisk-1.6.2.24\AMI Commands.txt" />
+    <None Remove="NotTested\Documentation\Asterisk-1.6.2.24\AMI Events.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="Connection\ActionDispatcher.cs" />
     <Compile Include="Connection\AMISocketManager.cs" />
     <Compile Include="Connection\ConnectionAuthenticator.cs" />
@@ -62,6 +67,11 @@
     <Compile Include="Connection\IAMISocketManager.cs" />
     <Compile Include="Connection\ManagerConnection.cs" />
     <Compile Include="Connection\ManagerReader.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="NotTested\Documentation\Asterisk-1.6.2.24\AMI Commands.txt" />
+    <Content Include="NotTested\Documentation\Asterisk-1.6.2.24\AMI Events.txt" />
   </ItemGroup>
 
 	<ItemGroup>
@@ -106,19 +116,16 @@
 	</ItemGroup>
 		
 	<ItemGroup Label="Sufficit Dependencies on Packing" Condition=" '$(Configuration)' == 'Packing' ">
-		<PackageReference Include="Sufficit.AsterNET" Version="1.*" />
-		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.*" />
-	</ItemGroup>
-
-	<ItemGroup Label="Sufficit Local Dependencies" Condition=" '$(Configuration)' != 'Packing' ">
-		<ProjectReference Include="..\..\sufficit-asterisk-core\src\Sufficit.Asterisk.Core.csproj" />
-		<ProjectReference Include="..\..\sufficit-asternet\Asterisk.2013\Asterisk.NET\Sufficit.AsterNET.csproj" />	
+		<PackageReference Include="Sufficit.Asterisk.Shared" Version="1.*" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Folder Include="IO\" />
+	  <ProjectReference Include="..\..\sufficit-asterisk-shared\src\Sufficit.Asterisk.Shared.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Folder Include="NotTested\ResponseHandlers\" />
+	  <Folder Include="NotTested\Response\" />
 	</ItemGroup>
+
 </Project>
