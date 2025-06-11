@@ -17,15 +17,7 @@ namespace Sufficit.Asterisk.Manager
         /// </summary>
         public string Title { get; }
 
-        public AMIConnection (AMIProviderOptions options) : base(
-            new ManagerConnectionParameters()
-            {
-                KeepAlive = options.KeepAlive,
-                Hostname = options.Address,
-                Port = options.Port,
-                Username = options.User ?? string.Empty,
-                Password = options.Password ?? string.Empty,
-            })
+        public AMIConnection (AMIProviderOptions options) : base(options)
         {
             Title = options.Title;
         }

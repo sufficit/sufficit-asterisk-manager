@@ -14,7 +14,7 @@ namespace Sufficit.Asterisk.Manager.Connection
     public class ConnectionReconnector : IDisposable
     {
         private readonly ILogger _logger = ManagerLogger.CreateLogger<ConnectionReconnector>();
-        private readonly ManagerConnectionParameters _parameters;
+        private readonly ReconnectorParameters _parameters;
         private readonly IAMISocketManager _lifecycleManager;
         private readonly ConnectionAuthenticator _authenticator;
         private readonly ConnectionLivenessMonitor _livenessMonitor;
@@ -23,7 +23,7 @@ namespace Sufficit.Asterisk.Manager.Connection
         private bool _isReconnecting = false;
 
         public ConnectionReconnector(
-            ManagerConnectionParameters parameters,
+            ReconnectorParameters parameters,
             IAMISocketManager lifecycleManager,
             ConnectionAuthenticator authenticator,
             ConnectionLivenessMonitor livenessMonitor)

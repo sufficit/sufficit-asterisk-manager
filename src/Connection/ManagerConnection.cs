@@ -49,42 +49,17 @@ namespace Sufficit.Asterisk.Manager.Connection
         public bool IsAuthenticated => _authenticator.IsAuthenticated;
         public Encoding SocketEncoding => _parameters.SocketEncoding;
 
-        public int ReconnectRetryFast { get; set; } = 5;
-        public int ReconnectRetryMax { get; set; } = 10;
-        public int ReconnectIntervalFast { get; set; } = 5000;
-        public int ReconnectIntervalMax { get; set; } = 10000;
-
-        /// <summary>
-        ///     Gets or sets a value indicating whether the connection should be kept alive.
-        /// </summary>
-        public bool KeepAlive { get; set; } = true;
-
-        public bool KeepAliveAfterAuthenticationFailure { get; set; } = false;
-
-        public const uint DefaultResponseTimeout = 2000;
-        public uint? ResponseTimeout { get; set; }
-        public uint ResponseTimeoutInternal => ResponseTimeout ?? DefaultResponseTimeout;
-
-        public const uint DefaultEventTimeout = 5000;
-        public uint? EventTimeout { get; set; }
-        protected uint EventTimeoutInternal => EventTimeout ?? DefaultEventTimeout;
-
-        /// <summary>
-        ///     Gets or sets the interval, in milliseconds, between ping operations.
-        /// </summary>
-        public int PingInterval { get; set; } = 3000;
-
         public AsteriskManagerEvents Events { get; internal set; }
 
         #endregion
 
-        #region Constructors
+        #region CONSTRUCTORS
 
         private readonly ConnectionAuthenticator _authenticator;
         private readonly ConnectionLivenessMonitor _livenessMonitor;
         private readonly ConnectionReconnector _reconnector;
 
-        public ManagerConnection(ManagerConnectionParameters parameters) : base(parameters)
+        public ManagerConnection (ManagerConnectionParameters parameters) : base(parameters)
         {
             _parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
 
@@ -96,8 +71,6 @@ namespace Sufficit.Asterisk.Manager.Connection
 
             // 2. Inicie a tarefa do consumidor em segundo plano
             _packetConsumerTask = Task.Run(ProcessPacketQueueAsync);
-
-            KeepAlive = _parameters.KeepAlive;
 
             Events = new AsteriskManagerEvents();
 
@@ -115,6 +88,41 @@ namespace Sufficit.Asterisk.Manager.Connection
             _reconnector.Start(); // Ativa o listener de desconexão
         }
 
+        #endregion
+        #region CHANNELING PACKETS
+
+        /// <remarks>Overriding for channeling packets in order to avoid thread and memory leaks</remarks>
+        /// <inheritdoc cref="AMISocketManager.HandlePacketReceived(IDictionary{string, string})"/> 
+        protected override void HandlePacketReceived(IDictionary<string, string> packet)
+        {
+            _logger.LogWarning("on base packet received, count on channel: {count}, packet: {json}", _queueCounter, packet.ToJson());
+
+            // updating timestamp for liveness monitoring
+            _livenessMonitor.LastMessageReceived = DateTime.UtcNow;
+
+            // A única tarefa aqui é tentar escrever na fila.
+            // TryWrite é não-bloqueante e extremamente rápido.
+            if (_packetChannel.Writer.TryWrite(packet))
+            {
+                // Incrementa o contador de forma segura para threads
+                Interlocked.Increment(ref _queueCounter);
+            }
+            else
+            {
+                // Log de erro se, por algum motivo, não for possível escrever na fila.
+                // Com uma fila Unbounded, isso é muito improvável.
+                _logger.LogError("Failed to write packet to channel. The queue may be closed.");
+            }
+        }
+
+        /// <summary>
+        /// Processes packets from the queue asynchronously for the lifetime of the connection.
+        /// </summary>
+        /// <remarks>This method continuously reads packets from the internal channel until the channel is
+        /// closed. Each packet is processed based on its content, such as dispatching events or handling responses.
+        /// Unrecognized packets are logged as warnings, and any errors during processing are logged as
+        /// errors.</remarks>
+        /// <returns></returns>
         private async Task ProcessPacketQueueAsync()
         {
             // Este loop roda pela vida inteira da conexão, até que o Channel seja fechado.
@@ -149,40 +157,24 @@ namespace Sufficit.Asterisk.Manager.Connection
             }
         }
 
+        #endregion
+        #region LOG IN & OFF & POST AUTHENTICATION
 
+        /// <inheritdoc />
+        public Task Login(CancellationToken cancellationToken)
+            => _authenticator.Login(cancellationToken);
+
+        /// <inheritdoc />
+        public Task LogOff(CancellationToken cancellationToken = default)
+            => _authenticator.LogOff(cancellationToken);
+        
         /// <summary>
-        ///     Notifying all handlers of the disconnection
+        /// Handles actions to be performed upon successful authentication.
         /// </summary>
-        /// <param name="args"></param>
-        protected override void OnDisconnectedTrigger(DisconnectEventArgs args)
-        {
-            FailAllHandlers(new NotConnectedException($"Connection lost: {args.Cause}, permanent: {args.IsPermanent}"));
-            base.OnDisconnectedTrigger(args);
-        }
-
-        /// <inheritdoc cref="AMISocketHandler.HandlePacketReceived(IDictionary{string, string})"/> 
-        protected override void HandlePacketReceived(IDictionary<string, string> packet)
-        {
-            _logger.LogWarning("on base packet received, count on channel: {count}, packet: {json}", _queueCounter, packet.ToJson());
-
-            // updating timestamp for liveness monitoring
-            _livenessMonitor.LastMessageReceived = DateTime.UtcNow;
-
-            // A única tarefa aqui é tentar escrever na fila.
-            // TryWrite é não-bloqueante e extremamente rápido.
-            if (_packetChannel.Writer.TryWrite(packet))
-            {
-                // Incrementa o contador de forma segura para threads
-                Interlocked.Increment(ref _queueCounter);
-            }
-            else
-            {
-                // Log de erro se, por algum motivo, não for possível escrever na fila.
-                // Com uma fila Unbounded, isso é muito improvável.
-                _logger.LogError("Failed to write packet to channel. The queue may be closed.");
-            }
-        }
-       
+        /// <remarks>This method is invoked after the authentication process completes. It performs
+        /// initialization tasks such as determining the Asterisk version and updating internal delimiters. If this is
+        /// the first login  attempt, additional setup is performed based on the provided parameters.</remarks>
+        /// <returns></returns>
         private async ValueTask OnAuthenticated()
         {
             // is the first login attempt ?
@@ -203,42 +195,7 @@ namespace Sufficit.Asterisk.Manager.Connection
             }
         }
 
-        public ManagerConnection(string hostname, int port, string username, string password) : this(
-            new ManagerConnectionParameters { Hostname = hostname, Port = port, Username = username, Password = password })
-        { }
-
-        public ManagerConnection() : this(new ManagerConnectionParameters()) { }
-
         #endregion        
-        #region Login & Authentication
-
-        /// <inheritdoc />
-        public Task Login(CancellationToken cancellationToken)
-            => _authenticator.Login(cancellationToken);
-
-        /// <inheritdoc />
-        public Task LogOff(CancellationToken cancellationToken = default)
-            => _authenticator.LogOff(cancellationToken);
-
-        #endregion
-        #region Misc Helpers
-
-        public void RegisterUserEventClass(Type userEventClass)
-        {
-            if (userEventClass == null) throw new ArgumentNullException(nameof(userEventClass));
-            if (!typeof(ManagerEvent).IsAssignableFrom(userEventClass) && !typeof(IManagerEvent).IsAssignableFrom(userEventClass))
-                throw new ArgumentException("Type must derive from ManagerEvent or implement IManagerEvent.", nameof(userEventClass));
-            Events.RegisterUserEventClass(userEventClass);
-        }
-
-        public void Use (AsteriskManagerEvents events, bool disposable = false)
-        {
-            Events?.Dispose();
-
-            // Atribui o novo sistema de eventos.
-            Events = events ?? throw new ArgumentNullException(nameof(events));
-        }
-
         #region SEND ACTION
 
         public override void SendAction(ManagerAction action, IResponseHandler? responseHandler)
@@ -255,7 +212,7 @@ namespace Sufficit.Asterisk.Manager.Connection
         {
             if (!IsConnected)
             {
-                string msg = $"not connected to Asterisk server ({_parameters.Hostname}:{_parameters.Port})";
+                string msg = $"not connected to Asterisk server ({_parameters.Address}:{_parameters.Port})";
                 throw new NotConnectedException(msg);
             }
         }
@@ -270,11 +227,41 @@ namespace Sufficit.Asterisk.Manager.Connection
         }
 
         #endregion
+        #region MISC
+
+        /// <summary>
+        ///     Notifying all handlers of the disconnection
+        /// </summary>
+        /// <param name="args"></param>
+        protected override void OnDisconnectedTrigger(DisconnectEventArgs args)
+        {
+            FailAllHandlers(new NotConnectedException($"Connection lost: {args.Cause}, permanent: {args.IsPermanent}"));
+            base.OnDisconnectedTrigger(args);
+        }
 
         #endregion
+        #region MISC - NOT TESTED
 
-        #region Dispose
-        
+
+        public void RegisterUserEventClass(Type userEventClass)
+        {
+            if (userEventClass == null) throw new ArgumentNullException(nameof(userEventClass));
+            if (!typeof(ManagerEvent).IsAssignableFrom(userEventClass) && !typeof(IManagerEvent).IsAssignableFrom(userEventClass))
+                throw new ArgumentException("Type must derive from ManagerEvent or implement IManagerEvent.", nameof(userEventClass));
+            Events.RegisterUserEventClass(userEventClass);
+        }
+
+        public void Use(AsteriskManagerEvents events, bool disposable = false)
+        {
+            Events?.Dispose();
+
+            // Atribui o novo sistema de eventos.
+            Events = events ?? throw new ArgumentNullException(nameof(events));
+        }
+
+        #endregion
+        #region DISPOSE
+
         public bool IsDisposeRequested { get; internal set; }
 
         public event EventHandler? OnDisposing;

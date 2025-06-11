@@ -97,19 +97,16 @@ namespace Sufficit.Asterisk.Manager
             {
                 if (_connection == null || _connection.IsDisposed)
                 {
+                    Options.KeepAlive = keepAlive;
+                    Options.ReconnectIntervalMax = 30000;
+
                     _connection = new AMIConnection(Options);
                     _connection.Events.FireAllEvents = false;
                 }
             }
 
             if (!_connection.IsConnected)
-            {
-                _connection.KeepAlive = keepAlive;
-                _connection.KeepAliveAfterAuthenticationFailure = false;
-                _connection.ReconnectRetryMax = int.MaxValue;
-                _connection.ReconnectIntervalMax = 30000;
-                _connection.EventTimeout = _connection.ResponseTimeout = 10000;
-                
+            {                
                 await _connection.Login(cancellationToken);
 
                 // _logger.LogInformation("MANAGER: {text}; ASTERISK: {enum}", _connection.Version, _connection.AsteriskVersion);

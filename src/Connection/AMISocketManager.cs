@@ -57,7 +57,7 @@ namespace Sufficit.Asterisk.Manager.Connection
                 if (IsConnected || IsDisposed) return IsConnected;
             }
 
-            _logger.LogInformation("Attempting to connect to Asterisk server {Hostname}:{Port}...", _parameters.Hostname, _parameters.Port);
+            _logger.LogInformation("Attempting to connect to Asterisk server {Hostname}:{Port}...", _parameters.Address, _parameters.Port);
             try
             {
                 var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _managerCts.Token);
@@ -73,7 +73,7 @@ namespace Sufficit.Asterisk.Manager.Connection
                 // tcpClient.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 5);
                 // tcpClient.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 5);
 
-                var connectTask = tcpClient.ConnectAsync(_parameters.Hostname, _parameters.Port);
+                var connectTask = tcpClient.ConnectAsync(_parameters.Address, (int)_parameters.Port);
                 var delayTask = Task.Delay(TimeSpan.FromSeconds(10), linkedCts.Token);
 
                 var completedTask = await Task.WhenAny(connectTask, delayTask);
@@ -81,7 +81,7 @@ namespace Sufficit.Asterisk.Manager.Connection
                 if (completedTask == delayTask)
                 {
                     // If the delay task finished first, it's a timeout.
-                    throw new TimeoutException($"Connection to {_parameters.Hostname}:{_parameters.Port} timed out after 10 seconds.");
+                    throw new TimeoutException($"Connection to {_parameters.Address}:{_parameters.Port} timed out after 10 seconds.");
                 }
 
                 // If we get here, the connectTask finished successfully.
@@ -100,12 +100,12 @@ namespace Sufficit.Asterisk.Manager.Connection
                 // Start the task that will consume and process lines from the socket handler's queue.
                 _ = ProcessSocketQueueAsync(linkedCts.Token);
 
-                _logger.LogInformation("Successfully connected to {Hostname}:{Port}. Waiting for protocol identification...", _parameters.Hostname, _parameters.Port);
+                _logger.LogInformation("Successfully connected to {Address}:{Port}. Waiting for protocol identification...", _parameters.Address, _parameters.Port);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to connect to {Hostname}:{Port}.", _parameters.Hostname, _parameters.Port);
+                _logger.LogError(ex, "Failed to connect to {Address}:{Port}.", _parameters.Address, _parameters.Port);
                 return false;
             }
         }
@@ -201,6 +201,13 @@ namespace Sufficit.Asterisk.Manager.Connection
             Disconnect("Socket disconnected: " + e.ToString());
         }
 
+        /// <summary>
+        /// Handles the receipt of a packet and triggers the <see cref="OnPacketReceived"/> event.
+        /// </summary>
+        /// <remarks>This method invokes the <see cref="OnPacketReceived"/> event, passing the current
+        /// instance and the received packet as arguments. Derived classes can override this method to provide custom
+        /// handling for received packets.</remarks>
+        /// <param name="packet">A dictionary containing the packet data, where keys represent field names and values represent field values.</param>
         protected virtual void HandlePacketReceived(IDictionary<string, string> packet)
         {
             OnPacketReceived?.Invoke(this, packet);
