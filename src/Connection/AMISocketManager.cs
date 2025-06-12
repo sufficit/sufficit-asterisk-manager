@@ -15,10 +15,34 @@
  * =================================================================================================
 */
 
+/*
+ * =================================================================================================
+ * CRITICAL PLATFORM COMPATIBILITY NOTE
+ * =================================================================================================
+ * The Connect method in this class has been specifically rewritten to use the `Socket` class
+ * directly, bypassing `TcpClient`. This change is critical to resolve a persistent
+ * `System.PlatformNotSupportedException` ("Sockets on this platform are invalid for use after a
+ * failed connection attempt") that occurs on certain restrictive network environments or OS platforms.
+ *
+ * The root cause of the exception is the default .NET behavior where a single socket object might be
+ * reused for multiple internal connection attempts (e.g., trying an IPv6 address, failing, and then
+ * immediately retrying with an IPv4 address on the same socket).
+ *
+ * This implementation avoids the issue by:
+ * 1. Manually resolving the host's IP addresses.
+ * 2. Iterating through each IP address.
+ * 3. Creating a brand new, clean `Socket` object for every single connection attempt.
+ * 4. Immediately disposing of the socket if that specific attempt fails.
+ * This ensures maximum control over the socket lifecycle and guarantees compatibility.
+ * =================================================================================================
+*/
+
 using Microsoft.Extensions.Logging;
 using Sufficit.Asterisk.IO;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -58,46 +82,87 @@ namespace Sufficit.Asterisk.Manager.Connection
             }
 
             _logger.LogInformation("Attempting to connect to Asterisk server {Hostname}:{Port}...", _parameters.Address, _parameters.Port);
+
+            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _managerCts.Token);
+
             try
             {
-                var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _managerCts.Token);
-                var tcpClient = new TcpClient();
-
-                // These settings will make the OS send a probe after 60 seconds of inactivity,
-                // and then send 5 more probes every 5 seconds before considering the connection dead.
-                tcpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
-
-                // The following options might not be available on all OSes (e.g., older macOS)
-                // but are safe to set on Linux and Windows.
-                // tcpClient.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 60);
-                // tcpClient.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 5);
-                // tcpClient.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 5);
-
-                var connectTask = tcpClient.ConnectAsync(_parameters.Address, (int)_parameters.Port);
-                var delayTask = Task.Delay(TimeSpan.FromSeconds(10), linkedCts.Token);
-
-                var completedTask = await Task.WhenAny(connectTask, delayTask);
-
-                if (completedTask == delayTask)
+                // Step 1: Manually resolve the hostname to IP addresses.
+                var addresses = await Dns.GetHostAddressesAsync(_parameters.Address);
+                if (addresses == null || addresses.Length == 0)
                 {
-                    // If the delay task finished first, it's a timeout.
-                    throw new TimeoutException($"Connection to {_parameters.Address}:{_parameters.Port} timed out after 10 seconds.");
+                    throw new SocketException((int)SocketError.HostNotFound);
                 }
 
-                // If we get here, the connectTask finished successfully.
-                // We should await it to propagate any potential connection exceptions.
-                await connectTask;
-
-                var options = new AGISocketOptions
+                // Step 2: Filter for IPv4 if the parameter is set.
+                IEnumerable<IPAddress> targetAddresses = addresses;
+                if (_parameters.ForceIPv4)
                 {
-                    Encoding = _parameters.SocketEncoding,
-                };
+                    targetAddresses = addresses.Where(ip => ip.AddressFamily == AddressFamily.InterNetwork);
+                    if (!targetAddresses.Any())
+                    {
+                        _logger.LogWarning("ForceIPv4 is true, but no IPv4 address found for host {Hostname}.", _parameters.Address);
+                        return false;
+                    }
+                }
 
-                // Create the active socket handler. It will start reading automatically.
-                _socket = new AISingleSocketHandler(_logger, options, tcpClient.Client, linkedCts.Token);
+                // Step 3: Loop through each address and attempt to connect.
+                Socket connectedSocket = null;
+                foreach (var ipAddress in targetAddresses)
+                {
+                    // For each attempt, create a brand new socket. This is the core of the fix.
+                    var socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                    try
+                    {
+                        _logger.LogDebug("Attempting to connect to IP {IPAddress}...", ipAddress);
+
+                        // Set socket options before connecting.
+                        socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+
+                        // =================== INÍCIO DA MUDANÇA DE COMPATIBILIDADE ===================
+                        // Use the ConnectAsync overload without a CancellationToken, which is netstandard2.0 compatible.
+                        var connectTask = socket.ConnectAsync(new IPEndPoint(ipAddress, (int)_parameters.Port));
+
+                        // Manually implement the timeout by racing the connect task against a delay task.
+                        var delayTask = Task.Delay(TimeSpan.FromSeconds(10), linkedCts.Token);
+
+                        var completedTask = await Task.WhenAny(connectTask, delayTask);
+
+                        if (completedTask == delayTask)
+                        {
+                            // If the delay task completed first, it's a timeout.
+                            throw new TimeoutException($"Connection to IP {ipAddress} timed out.");
+                        }
+
+                        // If the connectTask completed first, re-await it to propagate any potential exceptions.
+                        await connectTask;
+                        // =================== FIM DA MUDANÇA DE COMPATIBILIDADE ===================
+
+                        if (socket.Connected)
+                        {
+                            _logger.LogDebug("Successfully connected to IP {IPAddress}.", ipAddress);
+                            connectedSocket = socket;
+                            break; // Exit the loop on the first successful connection.
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to connect to IP {IPAddress}. Trying next address if available.", ipAddress);
+                        // IMPORTANT: Immediately dispose of the failed socket.
+                        socket.Dispose();
+                    }
+                }
+
+                if (connectedSocket == null)
+                {
+                    _logger.LogError("Could not connect to any of the resolved IP addresses for host {Hostname}.", _parameters.Address);
+                    return false;
+                }
+
+                var options = new AGISocketOptions { Encoding = _parameters.SocketEncoding };
+                _socket = new AISingleSocketHandler(_logger, options, connectedSocket, linkedCts.Token);
                 _socket.OnDisconnected += OnSocketDisconnected;
 
-                // Start the task that will consume and process lines from the socket handler's queue.
                 _ = ProcessSocketQueueAsync(linkedCts.Token);
 
                 _logger.LogInformation("Successfully connected to {Address}:{Port}. Waiting for protocol identification...", _parameters.Address, _parameters.Port);
@@ -105,7 +170,7 @@ namespace Sufficit.Asterisk.Manager.Connection
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to connect to {Address}:{Port}.", _parameters.Address, _parameters.Port);
+                _logger.LogError(ex, "A critical error occurred during the connection process to {Address}:{Port}.", _parameters.Address, _parameters.Port);
                 return false;
             }
         }
