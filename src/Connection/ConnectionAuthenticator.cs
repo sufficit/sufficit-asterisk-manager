@@ -7,7 +7,6 @@ using Sufficit.Asterisk.Manager.Response;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using static System.Collections.Specialized.BitVector32;
 
 namespace Sufficit.Asterisk.Manager.Connection
 {

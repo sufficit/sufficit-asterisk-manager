@@ -22,6 +22,13 @@ namespace Sufficit.Asterisk.Manager.Connection
         private readonly object _reconnectLock = new object();
         private bool _isReconnecting = false;
 
+        /// <summary>
+        /// Tracks the number of disconnections that have occurred.
+        /// </summary>
+        /// <remarks>This field is used internally to maintain a count of disconnection events. It is not
+        /// intended for direct access or modification by external code.</remarks>
+        private long _disconnectionCounter = 0;
+
         public ConnectionReconnector(
             ReconnectorParameters parameters,
             IAMISocketManager lifecycleManager,
@@ -44,7 +51,8 @@ namespace Sufficit.Asterisk.Manager.Connection
 
         private void HandleDisconnected(object? sender, DisconnectEventArgs e)
         {
-            _logger.LogWarning("Connection lost. Cause: {Cause}. Permanent: {IsPermanent}", e.Cause, e.IsPermanent);
+            var totalFailures = Interlocked.Increment(ref _disconnectionCounter);
+            _logger.LogWarning("Connection lost! Failure count for this instance: {TotalFailures}. Cause: {Cause}. Permanent: {IsPermanent}", totalFailures, e.Cause, e.IsPermanent);
 
             // É importante parar o monitor de liveness assim que a desconexão ocorre.
             _livenessMonitor.Stop();
