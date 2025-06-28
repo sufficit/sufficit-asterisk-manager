@@ -4,6 +4,7 @@ using Sufficit.Asterisk.Manager.Connection;
 using Sufficit.Asterisk.Manager.Response;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -119,15 +120,9 @@ namespace Sufficit.Asterisk.Manager
             var command = new CommandAction("show version files");
             try
             {
-                var response = await source.SendActionAsync<CommandResponse>(command, cancellationToken);
-
-                if (response.Result is IList<string> showVersionFilesResult && showVersionFilesResult.Count > 0)
-                {
-                    if (showVersionFilesResult[0] is string line1 && line1.StartsWith("File", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return AsteriskVersion.ASTERISK_1_2;
-                    }
-                }
+                var response = await source.SendActionAsync<CommandResponse>(command, cancellationToken);                
+                if (response.Result?.FirstOrDefault() is string line && line.StartsWith("File", StringComparison.OrdinalIgnoreCase))                
+                    return AsteriskVersion.ASTERISK_1_2;
             }
             catch (Exception ex)
             {

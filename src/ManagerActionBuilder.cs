@@ -66,7 +66,7 @@ namespace Sufficit.Asterisk.Manager
 
             // Assuming Helper.GetGetters is from Sufficit.Asterisk.Manager.Helpers.Helper
             var type = action.GetType();
-            _logger.LogDebug("building action for type: {type}", type.FullName);
+            _logger.LogTrace("building action for type: {type}", type.FullName);
             
             var getters = Helper.GetGetters(type);
             foreach (string nameKey in getters.Keys)

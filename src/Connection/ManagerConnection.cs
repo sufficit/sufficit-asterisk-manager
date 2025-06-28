@@ -37,6 +37,9 @@ namespace Sufficit.Asterisk.Manager.Connection
         /// </summary>
         public AsteriskVersion? AsteriskVersion { get; internal set; }
 
+        bool IManagerConnection.KeepAlive => _parameters.KeepAlive;
+
+        string IManagerConnection.Address => _parameters.Address;
 
         private readonly ManagerConnectionParameters _parameters;
 
@@ -198,14 +201,14 @@ namespace Sufficit.Asterisk.Manager.Connection
         #endregion        
         #region SEND ACTION
 
-        public override void SendAction(ManagerAction action, IResponseHandler? responseHandler)
+        public override async Task SendActionAsync(ManagerAction action, IResponseHandler? responseHandler, CancellationToken cancellationToken)
         {
             ThrowIfNotConnected();
 
             if (!(action.Action.Equals("login", StringComparison.OrdinalIgnoreCase) || action.Action.Equals("challenge", StringComparison.OrdinalIgnoreCase)))
                 ThrowIfNotAuthenticated();
 
-            base.SendAction(action, responseHandler);
+            await base.SendActionAsync(action, responseHandler, cancellationToken);
         }
 
         protected void ThrowIfNotConnected()
@@ -276,7 +279,6 @@ namespace Sufficit.Asterisk.Manager.Connection
                 return;
 
             IsDisposeRequested = true;
-            _logger.LogDebug("Disposing ManagerConnection...");
 
             OnDisposing?.Invoke(this, EventArgs.Empty);
 
@@ -303,8 +305,6 @@ namespace Sufficit.Asterisk.Manager.Connection
             // 5. Call the base Dispose method. This will trigger the cleanup in ActionDispatcher 
             //    (failing pending handlers) and then AMISocketManager (closing the socket).
             base.Dispose();
-
-            _logger.LogInformation("ManagerConnection disposed.");
 
             // Inform the Garbage Collector that this object has been cleaned up and its finalizer doesn't need to run.
             GC.SuppressFinalize(this);

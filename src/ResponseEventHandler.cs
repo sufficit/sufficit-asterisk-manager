@@ -118,7 +118,7 @@ namespace Sufficit.Asterisk.Manager // Ou o namespace onde esta classe realmente
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ResponseEventHandler (Hash: {HandlerHash}): Error getting ActionCompleteEventClass from action {ActionName}", this.Hash, action.Action);
-                HandleException(new AsteriskManagerException($"Failed to get ActionCompleteEventClass for action {action.Action}", ex)); // ManagerException deve ser resolvido
+                HandleException(new AsteriskManagerException($"Failed to get ActionCompleteEventClass for action {action.Action}", ex));
                 return;
             }
 

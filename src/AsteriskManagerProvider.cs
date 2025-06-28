@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Asterisk.Manager
 {
-    public class AsteriskManagerProvider : IAMIProvider, IDisposable
+    public class AsteriskManagerProvider : IAMIProvider, IDisposable, IAsyncDisposable
     {
         public AMIProviderOptions Options { get; internal set; }
 
@@ -25,7 +25,7 @@ namespace Sufficit.Asterisk.Manager
         private readonly ILogger _logger;
         private readonly object _lockConnection = new object();
 
-        private readonly SemaphoreSlim _stateChangeSemaphore = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _stateChangeSemaphore = new(1, 1);
 
         public AsteriskManagerProvider(IOptions<AMIProviderOptions> options, ILogger<AsteriskManagerProvider> logger)
         {
@@ -46,14 +46,14 @@ namespace Sufficit.Asterisk.Manager
             {
                 if (Enabled && _connection != null && _connection.IsConnected)
                 {
-                    _logger.LogInformation("Provider '{Title}' is already connected.", Options.Title);
+                    _logger.LogInformation("provider '{Title}' is already connected.", Options.Title);
                     return _connection;
                 }
 
-                _logger.LogInformation("Connecting Asterisk Manager Provider: {Title}", Options.Title);
+                _logger.LogInformation("connecting Asterisk Manager Provider: {Title}", Options.Title);
                 var connection = await InternalConnect(keepalive ?? Options.KeepAlive, cancellationToken);
                 Enabled = true;
-                _logger.LogInformation("Provider '{Title}' connected successfully.", Options.Title);
+                _logger.LogInformation("provider '{Title}' connected successfully.", Options.Title);
 
                 return connection;
             }
@@ -73,14 +73,14 @@ namespace Sufficit.Asterisk.Manager
             {
                 if (!Enabled)
                 {
-                    _logger.LogInformation("Provider '{Title}' is already disconnected.", Options.Title);
+                    _logger.LogInformation("provider '{Title}' is already disconnected.", Options.Title);
                     return;
                 }
 
-                _logger.LogInformation("Disconnecting Asterisk Manager Provider: {Title}", Options.Title);
+                _logger.LogInformation("disconnecting Asterisk Manager Provider: {Title}", Options.Title);
                 await InternalDisconnect(cancellationToken);
                 Enabled = false;
-                _logger.LogInformation("Provider '{Title}' disconnected successfully.", Options.Title);
+                _logger.LogInformation("provider '{Title}' disconnected successfully.", Options.Title);
             }
             finally
             {
@@ -125,35 +125,137 @@ namespace Sufficit.Asterisk.Manager
         }
 
         #region DISPOSING
-        public bool IsDisposed { get; internal set; }
 
+        public bool IsDisposed { get; private set; }
+
+        /// <summary>
+        /// Synchronously disposes of the object. Use DisposeAsync() for a graceful shutdown.
+        /// </summary>
         public void Dispose()
         {
-            if (!IsDisposed)
-            {
-                IsDisposed = true;
+            // Call the full dispose method, assuming this is a direct call from user code.
+            Dispose(true);
 
-                _stateChangeSemaphore.Wait(TimeSpan.FromSeconds(5));
+            // Suppress finalization to prevent the finalizer from running.
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            // Mark as disposed to prevent multiple calls.
+            IsDisposed = true;
+
+            // Only dispose managed resources if we are called from Dispose() or DisposeAsync().
+            if (disposing)
+            {
+                _logger.LogInformation("Synchronous disposal initiated for provider '{Title}'.", Options.Title);
+
+                // We're in the synchronous path, so we don't await.
+                // We attempt to get the semaphore without blocking indefinitely.
+                if (_stateChangeSemaphore.Wait(TimeSpan.FromSeconds(5)))
+                {
+                    try
+                    {
+                        // Clean up the connection if it exists.
+                        if (_connection != null)
+                        {
+                            // Attempt to log off, but don't block. Use a timeout.
+                            // If the task doesn't complete in time, we just continue.
+                            if (_connection.IsConnected)
+                            {
+                                try
+                                {
+                                    // Use a non-blocking wait. This is better than a hard Wait().
+                                    // It allows the thread to continue after the timeout.
+                                    var disconnectTask = _connection.LogOff(CancellationToken.None);
+                                    if (!disconnectTask.Wait(TimeSpan.FromSeconds(2)))
+                                    {
+                                        _logger.LogWarning("Timeout while waiting for connection logoff during synchronous dispose.");
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, "Error during connection logoff in synchronous dispose.");
+                                    // Ignoring errors as per original code logic on dispose.
+                                }
+                            }
+                            _connection.Dispose();
+                            _connection = null;
+                        }
+                    }
+                    finally
+                    {
+                        // Always release the semaphore.
+                        _stateChangeSemaphore.Release();
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to acquire semaphore during synchronous dispose. Connection might not be properly cleaned up.");
+                }
+
+                // The semaphore itself needs to be disposed.
+                _stateChangeSemaphore.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Asynchronously disposes of the object, ensuring a graceful shutdown.
+        /// This is the recommended method for disposing of the provider.
+        /// </summary>
+        public async ValueTask DisposeAsync()
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            _logger.LogInformation("Asynchronous disposal initiated for provider '{Title}'.", Options.Title);
+
+            // Wait for the semaphore without a timeout, ensuring we have exclusive access.
+            await _stateChangeSemaphore.WaitAsync();
+            try
+            {
+                // Disconnect gracefully. The method already uses an awaitable task.
+                if (_connection?.IsConnected ?? false)
+                {
+                    await _connection.LogOff(CancellationToken.None);
+                }
+
+                // Dispose the connection.
                 if (_connection != null)
                 {
-                    if (_connection.IsConnected)
-                    {
-                        try { InternalDisconnect().Wait(2000); }
-                        catch { /* Ignoring errors on dispose */ }
-                    }
                     _connection.Dispose();
                     _connection = null;
                 }
-
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred during asynchronous disposal.");
+                // This catch block is important to ensure the finally block is reached.
+            }
+            finally
+            {
+                // Always release the semaphore.
                 _stateChangeSemaphore.Release();
+                // We're done with the semaphore, so dispose it here.
                 _stateChangeSemaphore.Dispose();
+            }
 
-                Dispose(disposing: true);
-                GC.SuppressFinalize(this);
-            }           
+            // Call the synchronous dispose method to perform the final cleanup of managed resources.
+            // This also handles marking the object as disposed and suppressing finalization.
+            // We pass 'false' because we've already done the cleanup in the async method.
+            Dispose(disposing: false);
+
+            // Mark the object as disposed and suppress finalization.
+            IsDisposed = true;
+            GC.SuppressFinalize(this);
         }
-
-        protected virtual void Dispose(bool disposing) { }
 
         #endregion
     }

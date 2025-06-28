@@ -63,7 +63,7 @@ namespace Sufficit.Asterisk.Manager
             else
                 Actions[handler.Hash] = handler;
 
-            _logger.LogWarning("total handlers, actions: {actions}, ping: {ping}, events: {events}", Actions.Count, Ping.Count, Events.Count);
+            _logger.LogTrace("total handlers, actions: {actions}, ping: {ping}, events: {events}", Actions.Count, Ping.Count, Events.Count);
         }
 
         /// <summary>

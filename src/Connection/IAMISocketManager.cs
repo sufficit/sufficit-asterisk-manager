@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Sufficit.Asterisk.IO;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
@@ -9,12 +10,9 @@ namespace Sufficit.Asterisk.Manager.Connection
     /// <summary>
     /// Asterisk Manager Interface Socket Life Cycle Manager
     /// </summary>
-    public interface IAMISocketManager
+    public interface IAMISocketManager : ISocketStatus
     {
-        bool IsConnected { get; }
-
         Task<bool> Connect(CancellationToken cancellationToken);
-
         void Disconnect(string cause, bool isPermanent = false);
 
         event EventHandler<string>? OnConnectionIdentified;

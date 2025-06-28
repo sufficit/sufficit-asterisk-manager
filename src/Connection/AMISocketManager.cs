@@ -41,6 +41,7 @@ using Microsoft.Extensions.Logging;
 using Sufficit.Asterisk.IO;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -59,31 +60,37 @@ namespace Sufficit.Asterisk.Manager.Connection
 
         private readonly ManagerConnectionParameters _parameters;
         private AISingleSocketHandler? _socket; // Changed to the concrete, active type
-        private readonly CancellationTokenSource _managerCts;
+        private CancellationTokenSource? _managerCts;
         private readonly object _connectionLock = new object();
 
+#if !NETSTANDARD
+        [MemberNotNullWhen(true, nameof(_socket))]
+#endif
+        /// <inheritdoc cref="ISocketStatus.IsConnected"/>
         public bool IsConnected => _socket?.IsConnected ?? false;
+
+        /// <inheritdoc cref="ISocketStatus.TotalBytesReceived"/>
+        public ulong TotalBytesReceived => _socket?.TotalBytesReceived ?? 0;
 
         public event EventHandler<string>? OnConnectionIdentified;
         public event EventHandler<DisconnectEventArgs>? OnDisconnected;
         public event EventHandler<IDictionary<string, string>>? OnPacketReceived;
 
-        public AMISocketManager(ManagerConnectionParameters parameters)
+        public AMISocketManager (ManagerConnectionParameters parameters)
         {
             _parameters = parameters;
-            _managerCts = new CancellationTokenSource();
         }
 
-        public async Task<bool> Connect(CancellationToken cancellationToken)
+        public async Task<bool> Connect (CancellationToken cancellationToken)
         {
             lock (_connectionLock)
             {
                 if (IsConnected || IsDisposed) return IsConnected;
             }
 
-            _logger.LogInformation("Attempting to connect to Asterisk server {Hostname}:{Port}...", _parameters.Address, _parameters.Port);
+            _logger.LogDebug("attempting to connect to Asterisk server {Hostname}:{Port}...", _parameters.Address, _parameters.Port);
 
-            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _managerCts.Token);
+            _managerCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             try
             {
@@ -107,14 +114,14 @@ namespace Sufficit.Asterisk.Manager.Connection
                 }
 
                 // Step 3: Loop through each address and attempt to connect.
-                Socket connectedSocket = null;
+                Socket? connectedSocket = null;
                 foreach (var ipAddress in targetAddresses)
                 {
                     // For each attempt, create a brand new socket. This is the core of the fix.
                     var socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                     try
                     {
-                        _logger.LogDebug("Attempting to connect to IP {IPAddress}...", ipAddress);
+                        _logger.LogDebug("attempting to connect to IP {IPAddress} ...", ipAddress);
 
                         // Set socket options before connecting.
                         socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
@@ -124,7 +131,7 @@ namespace Sufficit.Asterisk.Manager.Connection
                         var connectTask = socket.ConnectAsync(new IPEndPoint(ipAddress, (int)_parameters.Port));
 
                         // Manually implement the timeout by racing the connect task against a delay task.
-                        var delayTask = Task.Delay(TimeSpan.FromSeconds(10), linkedCts.Token);
+                        var delayTask = Task.Delay(TimeSpan.FromSeconds(10), _managerCts.Token);
 
                         var completedTask = await Task.WhenAny(connectTask, delayTask);
 
@@ -140,14 +147,14 @@ namespace Sufficit.Asterisk.Manager.Connection
 
                         if (socket.Connected)
                         {
-                            _logger.LogDebug("Successfully connected to IP {IPAddress}.", ipAddress);
+                            _logger.LogDebug("successfully connected to IP: {IPAddress}.", ipAddress);
                             connectedSocket = socket;
                             break; // Exit the loop on the first successful connection.
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to connect to IP {IPAddress}. Trying next address if available.", ipAddress);
+                        _logger.LogWarning(ex, "failed to connect to IP: {IPAddress}. trying next address if available.", ipAddress);
                         // IMPORTANT: Immediately dispose of the failed socket.
                         socket.Dispose();
                     }
@@ -155,22 +162,22 @@ namespace Sufficit.Asterisk.Manager.Connection
 
                 if (connectedSocket == null)
                 {
-                    _logger.LogError("Could not connect to any of the resolved IP addresses for host {Hostname}.", _parameters.Address);
+                    _logger.LogError("could not connect to any of the resolved IP addresses for host {Hostname}.", _parameters.Address);
                     return false;
                 }
 
                 var options = new AGISocketOptions { Encoding = _parameters.SocketEncoding };
-                _socket = new AISingleSocketHandler(_logger, options, connectedSocket, linkedCts.Token);
+                _socket = new AISingleSocketHandler(_logger, options, connectedSocket, _managerCts.Token);
                 _socket.OnDisconnected += OnSocketDisconnected;
 
-                _ = ProcessSocketQueueAsync(linkedCts.Token);
+                _ = ProcessSocketQueueAsync(_managerCts.Token);
 
-                _logger.LogInformation("Successfully connected to {Address}:{Port}. Waiting for protocol identification...", _parameters.Address, _parameters.Port);
+                _logger.LogDebug("successfully connected to {Address}:{Port}. waiting for protocol identification ...", _parameters.Address, _parameters.Port);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "A critical error occurred during the connection process to {Address}:{Port}.", _parameters.Address, _parameters.Port);
+                _logger.LogError(ex, "critical error occurred during the connection process to {Address}:{Port}.", _parameters.Address, _parameters.Port);
                 return false;
             }
         }
@@ -179,7 +186,7 @@ namespace Sufficit.Asterisk.Manager.Connection
         /// This task replaces the old ManagerReader. It consumes lines from the socket handler,
         /// assembles them into packets, and dispatches them to the application.
         /// </summary>
-        private async Task ProcessSocketQueueAsync(CancellationToken token)
+        private async Task ProcessSocketQueueAsync (CancellationToken cancellationToken)
         {
             if (_socket == null)
             {
@@ -187,7 +194,7 @@ namespace Sufficit.Asterisk.Manager.Connection
                 return;
             }
 
-            _logger.LogInformation("Packet processing queue consumer started.");
+            _logger.LogTrace("packet processing queue consumer started.");
             var packet = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var commandList = new List<string>();
             bool isProcessingCommandResult = false;
@@ -196,7 +203,7 @@ namespace Sufficit.Asterisk.Manager.Connection
             try
             {
                 // It will now yield the thread while waiting for new lines instead of blocking it.
-                await foreach (var line in _socket.ReadQueue(token))
+                await foreach (var line in _socket.ReadQueue(cancellationToken))
                 {
                     // The logic inside the loop remains exactly the same as before.
                     if (line == null) continue;
@@ -246,15 +253,15 @@ namespace Sufficit.Asterisk.Manager.Connection
             }
             catch (OperationCanceledException)
             {
-                _logger.LogTrace("Packet processing was canceled.");
+                _logger.LogTrace("packet processing was canceled.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Packet processing queue encountered an unhandled exception.");
+                _logger.LogError(ex, "packet processing queue encountered an unhandled exception");
             }
             finally
             {
-                _logger.LogInformation("Packet processing queue consumer finished.");
+                _logger.LogDebug("packet processing queue consumer finished");
             }
         }
 
@@ -289,7 +296,10 @@ namespace Sufficit.Asterisk.Manager.Connection
             {
                 if (!IsConnected && !IsDisposed) return;
 
-                _logger.LogInformation("Disconnecting from Asterisk server. Cause: {Cause}", cause);
+                if (cause.Contains("disposed"))
+                    _logger.LogTrace("disconnecting from Asterisk server. cause: {cause}", cause);
+                else
+                    _logger.LogInformation("disconnecting from Asterisk server. cause: {cause}", cause);
 
                 // Dispose the socket handler, which will stop the background tasks.
                 _socket?.Dispose();
@@ -303,13 +313,13 @@ namespace Sufficit.Asterisk.Manager.Connection
         protected virtual void OnDisconnectedTrigger(DisconnectEventArgs args)
             => OnDisconnected?.Invoke(this, args);
 
-        public void Write(string data)
+        public async Task WriteAsync (string data, CancellationToken cancellationToken)
         {
-            if (!IsConnected || _socket == null)
+            if (!IsConnected)
                 throw new NotConnectedException("Cannot write data, socket is not connected.");
 
             _logger.LogTrace("Writing to socket: \n{data}", data);
-            _socket.Write(data);
+            await _socket.WriteAsync(data, cancellationToken);
         }
 
         #region DISPOSABLE
@@ -321,13 +331,22 @@ namespace Sufficit.Asterisk.Manager.Connection
             if (IsDisposed) return;
             IsDisposed = true;
 
-            // Cancel any operations and disconnect
-            if (!_managerCts.IsCancellationRequested)
-                _managerCts.Cancel();
+            // cancel any operations and disconnect
+            if (_managerCts != null)
+            {
+                if (!_managerCts.IsCancellationRequested)
+                    _managerCts.Cancel();
 
-            Disconnect("Manager disposed", isPermanent: true);
-            _managerCts.Dispose();
+                _managerCts.Dispose();
+            }
 
+            if (_socket != null)
+            {
+                _socket.Dispose();
+                _socket = null;
+            }
+
+            Disconnect($"{nameof(AMISocketManager)} disposed", isPermanent: true);
             GC.SuppressFinalize(this);
         }
 

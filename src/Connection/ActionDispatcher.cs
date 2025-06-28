@@ -42,18 +42,18 @@ namespace Sufficit.Asterisk.Manager.Connection
             {
                 // Create a handler that will complete the Task when the response arrives.
                 var handler = new TaskResponseHandler<TResponse>(action, tcs);
-                SendAction(action, handler);
+                await SendActionAsync(action, handler, cancellationToken);
                 return await tcs.Task;
             }
         }
 
-        /// <inheritdoc cref="IActionDispatcher.SendAction(ManagerAction, IResponseHandler?)"/>
-        public virtual void SendAction (ManagerAction action, IResponseHandler? responseHandler)
+        /// <inheritdoc cref="IActionDispatcher.SendActionAsync(ManagerAction, IResponseHandler?, CancellationToken)"/>
+        public virtual async Task SendActionAsync (ManagerAction action, IResponseHandler? responseHandler, CancellationToken cancellationToken)
         {
             if (responseHandler == null)
             {
                 string buffer = BuildAction(action, string.Empty);
-                base.Write(buffer);
+                await base.WriteAsync(buffer, cancellationToken);
                 return;
             }
 
@@ -66,7 +66,7 @@ namespace Sufficit.Asterisk.Manager.Connection
             try
             {
                 string buffer = BuildAction(action, internalActionId);
-                base.Write(buffer);
+                await base.WriteAsync(buffer, cancellationToken);
             }
             catch
             {

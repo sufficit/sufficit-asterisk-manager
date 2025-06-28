@@ -5,6 +5,7 @@ using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Events.Abstracts;
 using Sufficit.Asterisk.Manager.Response;
 using System;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -64,13 +65,13 @@ namespace Sufficit.Asterisk.Manager.Connection
 
         private async void OnConnectionIdentified(object? sender, string protocolIdentifier)
         {
-            _logger.LogInformation("Protocol Identifier '{ProtocolId}' received. Proceeding with authentication.", protocolIdentifier);
+            _logger.LogTrace("Protocol Identifier '{ProtocolId}' received. Proceeding with authentication.", protocolIdentifier);
             try
             {
                 await PerformAuthenticationAsync();                
                 IsAuthenticated = true;
 
-                _logger.LogInformation("Authentication successful for user '{LoginUsername}'.", _parameters.Username);
+                _logger.LogDebug("Authentication successful for user '{LoginUsername}'.", _parameters.Username);
                 _loginTcs?.TrySetResult(true);
             }
             catch (Exception ex)
@@ -90,10 +91,15 @@ namespace Sufficit.Asterisk.Manager.Connection
                 var challengeAction = new ChallengeAction("MD5");
                 var challengeResponse = await _actionDispatcher.SendActionAsync<ChallengeResponse>(challengeAction, CancellationToken.None);
 
+                var challengeBytes = System.Text.Encoding.UTF8.GetBytes(challengeResponse.Challenge + _parameters.Password);
+#if NETSTANDARD
                 var md5 = System.Security.Cryptography.MD5.Create();
-                var hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(challengeResponse.Challenge + _parameters.Password));
+                var hash = md5.ComputeHash(challengeBytes);
+#else
+                var hash = System.Security.Cryptography.MD5.HashData(challengeBytes);                
+#endif
                 action.Key = BitConverter.ToString(hash).Replace("-", "").ToLower();
-                action.AuthType = "MD5";
+                action.AuthType = challengeAction.AuthType;
             }
 
             var response = await _actionDispatcher.SendActionAsync<ManagerResponseEvent>(action, CancellationToken.None);
