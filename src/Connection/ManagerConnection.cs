@@ -81,11 +81,11 @@ namespace Sufficit.Asterisk.Manager.Connection
             VarDelimeters = this.GetDelimiters();
 
             // 3. Create the component that handles the login/logoff logic
-            _authenticator = new ConnectionAuthenticator(parameters, this, this);
+            _authenticator = new ConnectionAuthenticator (parameters, this, this);
             _authenticator.OnAuthenticated = OnAuthenticated;
 
             // 4. Create the component that sends pings to keep the connection alive
-            _livenessMonitor = new ConnectionLivenessMonitor(parameters, this, this);
+            _livenessMonitor = new ConnectionLivenessMonitor (parameters, this, this);
 
             _reconnector = new ConnectionReconnector(parameters, this, _authenticator, _livenessMonitor);
             _reconnector.Start(); // Ativa o listener de desconexão
@@ -203,21 +203,10 @@ namespace Sufficit.Asterisk.Manager.Connection
 
         public override async Task SendActionAsync(ManagerAction action, IResponseHandler? responseHandler, CancellationToken cancellationToken)
         {
-            ThrowIfNotConnected();
-
             if (!(action.Action.Equals("login", StringComparison.OrdinalIgnoreCase) || action.Action.Equals("challenge", StringComparison.OrdinalIgnoreCase)))
                 ThrowIfNotAuthenticated();
 
             await base.SendActionAsync(action, responseHandler, cancellationToken);
-        }
-
-        protected void ThrowIfNotConnected()
-        {
-            if (!IsConnected)
-            {
-                string msg = $"not connected to Asterisk server ({_parameters.Address}:{_parameters.Port})";
-                throw new NotConnectedException(msg);
-            }
         }
 
         protected void ThrowIfNotAuthenticated()

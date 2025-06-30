@@ -109,7 +109,7 @@ namespace Sufficit.Asterisk.Manager.Connection
 
                             _logger.LogInformation("Reconnect successful!");
 
-                            // Restart the liveness monitor for the new connection
+                            // restart the liveness monitor for the new connection
                             _livenessMonitor.Start();
                             return; // Success! Exit the method.
                         }

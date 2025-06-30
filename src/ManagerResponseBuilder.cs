@@ -6,6 +6,7 @@ using Sufficit.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -338,6 +339,24 @@ namespace Sufficit.Asterisk.Manager
             var actionId = buffer["actionid"];
             _ = buffer.Remove("actionid");
             return actionId;
+        }
+
+        internal static bool TryExtractActionId (IDictionary<string, string> buffer,
+#if !NETSTANDARD
+        [NotNullWhen(true)]
+#endif
+            out string? actionId)
+        {
+            if (buffer != null)
+            {
+                if (buffer.TryGetValue("actionid", out actionId))
+                {
+                    _ = buffer.Remove("actionid");
+                    return true;
+                }
+            }
+            actionId = string.Empty;
+            return false;
         }
 
         internal static string GetInternalActionId(string actionId)

@@ -6,9 +6,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Sufficit.Asterisk.IO;
 using static Sufficit.Asterisk.Manager.ManagerResponseBuilder;
 using static Sufficit.Asterisk.Manager.ManagerActionBuilder;
-using Sufficit.Asterisk.IO;
+using Sufficit.Json;
 
 namespace Sufficit.Asterisk.Manager.Connection
 {
@@ -29,13 +30,13 @@ namespace Sufficit.Asterisk.Manager.Connection
 
         #region SEND ACTION
 
-        public async Task<ManagerResponseEvent> SendActionAsync(ManagerAction action, CancellationToken cancellationToken)
+        public async Task<ManagerResponseEvent> SendActionAsync (ManagerAction action, CancellationToken cancellationToken)
            => await SendActionAsync<ManagerResponseEvent>(action, cancellationToken);
 
         public async Task<ManagerResponseEvent> SendActionAsync<TAction>(CancellationToken cancellationToken) where TAction : ManagerAction, new()
-            => await SendActionAsync<ManagerResponseEvent>(new TAction(), cancellationToken);
+            => await SendActionAsync<ManagerResponseEvent> (new TAction(), cancellationToken);
 
-        public async Task<TResponse> SendActionAsync<TResponse>(ManagerAction action, CancellationToken cancellationToken) where TResponse : ManagerResponseEvent
+        public async Task<TResponse> SendActionAsync<TResponse> (ManagerAction action, CancellationToken cancellationToken) where TResponse : ManagerResponseEvent
         {
             var tcs = new TaskCompletionSource<TResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
             using (cancellationToken.Register(() => tcs.TrySetCanceled()))
@@ -50,6 +51,8 @@ namespace Sufficit.Asterisk.Manager.Connection
         /// <inheritdoc cref="IActionDispatcher.SendActionAsync(ManagerAction, IResponseHandler?, CancellationToken)"/>
         public virtual async Task SendActionAsync (ManagerAction action, IResponseHandler? responseHandler, CancellationToken cancellationToken)
         {
+            ThrowIfNotConnected();
+
             if (responseHandler == null)
             {
                 string buffer = BuildAction(action, string.Empty);
@@ -73,7 +76,13 @@ namespace Sufficit.Asterisk.Manager.Connection
                 _handlers.Remove(responseHandler);
                 throw;
             }
-        }        
+        }
+
+        protected void ThrowIfNotConnected()
+        {
+            if (!IsConnected)            
+                throw new NotConnectedException("not connected to Asterisk server");            
+        }
 
         #endregion
 
@@ -89,15 +98,17 @@ namespace Sufficit.Asterisk.Manager.Connection
                 return;
             }
 
-            string AMIActionId = default!;
+            if (!TryExtractActionId(buffer, out string? AMIActionId))
+            {
+                var jsonBuffer = buffer.ToJson();
+
+                // this normally happens when the buffer is out of order or malformed by a previous failure
+                _logger.LogWarning("can't extract AMI ActionId from buffer: {buffer}", jsonBuffer);
+                return;
+            }
+
             try
             {
-                // _logger.LogWarning("buffer response: {json}", buffer.ToJson());
-
-                AMIActionId = ExtractActionId(buffer);
-                if (string.IsNullOrWhiteSpace(AMIActionId))
-                    throw new ResponseBuildException("can't extract AMI ActionId from buffer");
-
                 var InternalActionId = GetInternalActionId(AMIActionId);
                 if (string.IsNullOrWhiteSpace(InternalActionId))
                     throw new ResponseBuildException($"can't get internal action id for AMI Actiond Id: {AMIActionId}");
@@ -118,6 +129,10 @@ namespace Sufficit.Asterisk.Manager.Connection
             catch (AsteriskManagerException ex)
             {
                 _logger.LogError(ex, "error on dispatch response for ActionId '{AMIActionId}'", AMIActionId);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogError(ex, "key not found on dispatch response for ActionId '{AMIActionId}'", AMIActionId);
             }
             catch (Exception ex)
             {

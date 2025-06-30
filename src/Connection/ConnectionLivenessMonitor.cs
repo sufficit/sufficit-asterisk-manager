@@ -1,5 +1,6 @@
 ﻿using AsterNET.Manager.Action;
 using Microsoft.Extensions.Logging;
+using Sufficit.Asterisk.IO;
 using Sufficit.Asterisk.Manager.Events.Abstracts;
 using System;
 using System.Threading;
@@ -29,7 +30,7 @@ namespace Sufficit.Asterisk.Manager.Connection
         /// </summary>
         public DateTime LastMessageReceived { get; set; }
 
-        public ConnectionLivenessMonitor(ManagerConnectionParameters parameters, IAMISocketManager lifecycleManager, IActionDispatcher actionDispatcher)
+        public ConnectionLivenessMonitor (ManagerConnectionParameters parameters, IAMISocketManager lifecycleManager, IActionDispatcher actionDispatcher)
         {
             _lifecycleManager = lifecycleManager;
             _actionDispatcher = actionDispatcher;
@@ -68,7 +69,7 @@ namespace Sufficit.Asterisk.Manager.Connection
                 try
                 {
                     await Task.Delay(_pingInterval, cancellationToken);
-                    if (cancellationToken.IsCancellationRequested) break;
+                    cancellationToken.ThrowIfCancellationRequested();
 
                     if ((DateTime.UtcNow - LastMessageReceived).TotalMilliseconds >= _pingInterval)
                     {
@@ -79,11 +80,13 @@ namespace Sufficit.Asterisk.Manager.Connection
                 }
                 catch (OperationCanceledException)
                 {
-                    break; // Expected when stopping
+                    break; // expected when stopping
                 }
+                catch (NotConnectedException) { } // Ignore if not connected, will retry on next loop
+                catch (InvalidOperationException) { } // Ignore if the connection is not in a valid state, will retry on next loop
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Liveness monitor encountered an error. Disconnecting.");
+                    _logger.LogError(ex, "liveness monitor encountered an error. disconnecting.");
                     _lifecycleManager.Disconnect("Liveness monitor failed.", isPermanent: false);
                     break;
                 }
