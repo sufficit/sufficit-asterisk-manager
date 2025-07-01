@@ -50,10 +50,10 @@ namespace Sufficit.Asterisk.Manager
                     return _connection;
                 }
 
-                _logger.LogInformation("connecting Asterisk Manager Provider: {Title}", Options.Title);
+                _logger.LogDebug("Asterisk Manager Provider: '{Title}', connecting ...", Options.Title);
                 var connection = await InternalConnect(keepalive ?? Options.KeepAlive, cancellationToken);
                 Enabled = true;
-                _logger.LogInformation("provider '{Title}' connected successfully.", Options.Title);
+                _logger.LogInformation("Asterisk Manager Provider: '{Title}', connected successfully, with username: {username}.", Options.Title, Options.Username);
 
                 return connection;
             }
