@@ -46,18 +46,11 @@ This module can be run as a background service or integrated into a larger appli
     using Sufficit.Asterisk.Manager;
     using Sufficit.Asterisk.Manager.Actions;
 
-    // Connection options
-    var options = new ManagerConnectionOptions
-    {
-        HostName = "127.0.0.1",
-        Port = 5038,
-        UserName = "admin",
-        Password = "mysecretpassword"
-    };
-
-    // Start the manager service
-    var managerService = new AsteriskManagerService(options);
-    await managerService.StartAsync();
+    // Create connection
+    var connection = new ManagerConnection();
+    
+    // Connect to Asterisk
+    await connection.LoginAsync("127.0.0.1", 5038, "admin", "mysecretpassword");
 
     // Example of sending an action
     var originateAction = new OriginateAction
@@ -68,8 +61,17 @@ This module can be run as a background service or integrated into a larger appli
         Priority = 1
     };
 
-    ManagerResponse response = await managerService.SendAction(originateAction);
+    ManagerResponse response = await connection.SendActionAsync(originateAction);
     Console.WriteLine($"Originate response: {response.Message}");
+
+    // Subscribe to events
+    connection.ManagerEvent += (sender, e) =>
+    {
+        Console.WriteLine($"Event received: {e.EventName}");
+    };
+
+    // Disconnect when done
+    await connection.LogoffAsync();
 
 ## 🤝 Contributing
 
