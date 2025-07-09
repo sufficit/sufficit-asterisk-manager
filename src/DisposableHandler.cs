@@ -10,10 +10,10 @@ namespace Sufficit.Asterisk.Manager
     /// </summary>
     public class DisposableHandler<T> : IDisposable where T : IManagerEvent
     {
-        private readonly ManagerEventHandler<T> _control;
+        private readonly AsteriskEventSubscription<T> _control;
         private readonly EventHandler<T> _action;
 
-        public DisposableHandler(ManagerEventHandler<T> control, EventHandler<T> action)
+        public DisposableHandler(AsteriskEventSubscription<T> control, EventHandler<T> action)
         {
             _control = control;
             _action = action;

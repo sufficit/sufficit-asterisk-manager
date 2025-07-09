@@ -14,15 +14,16 @@ using Sufficit.Asterisk.Manager.Events;
 namespace Sufficit.Asterisk.Manager
 {
     /// <summary>
-    /// Manages Asterisk Manager event subscriptions and dispatching using a modern,
+    /// Central event management system for Asterisk Manager Interface events.
+    /// Coordinates multiple event subscriptions and handles event dispatching using a modern,
     /// high-performance, non-blocking producer-consumer pattern.
     /// </summary>
-    /// <remarks>Project to be used on multiple instances of <see cref="ManagerConnection"/></remarks>
-    public class AsteriskManagerSubscriptions : IAsteriskManagerSubscriptions, IAsyncDisposable
+    /// <remarks>Designed to be used on multiple instances of <see cref="ManagerConnection"/></remarks>
+    public class AsteriskEventManager : IAsteriskEventManager, IAsyncDisposable
     {
         #region Static Section (Original Logic)
 
-        private static readonly ILogger _logger = ManagerLogger.CreateLogger<AsteriskManagerSubscriptions>();
+        private static readonly ILogger _logger = ManagerLogger.CreateLogger<AsteriskEventManager>();
         private static readonly object _lockDiscovered = new object();
         private static IEnumerable<Type>? _discoveredTypes;
 
@@ -131,7 +132,7 @@ namespace Sufficit.Asterisk.Manager
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly Task _consumerTask;
 
-        public AsteriskManagerSubscriptions()
+        public AsteriskEventManager()
         {
             _handlers = new ConcurrentDictionary<string, ManagerInvokable>();
             _eventChannel = Channel.CreateUnbounded<Tuple<object?, IManagerEvent>>(new UnboundedChannelOptions { SingleReader = true });
@@ -151,12 +152,12 @@ namespace Sufficit.Asterisk.Manager
 
             var invokable = _handlers.GetOrAdd(eventKey, key =>
             {
-                var newHandler = new ManagerEventHandler<T>(key);
+                var newHandler = new AsteriskEventSubscription<T>(key);
                 newHandler.OnChanged += OnHandlerChanged;
                 return newHandler;
             });
 
-            if (invokable is ManagerEventHandler<T> handler)
+            if (invokable is AsteriskEventSubscription<T> handler)
                 return new DisposableHandler<T>(handler, action);
 
             throw new InvalidOperationException($"Handler type mismatch for event key: {eventKey}.");
@@ -174,8 +175,44 @@ namespace Sufficit.Asterisk.Manager
 
         public void Dispatch(object? sender, IManagerEvent e)
         {
-            if (!_eventChannel.Writer.TryWrite(Tuple.Create(sender, e)))
-                _logger.LogWarning("Event channel is full or closed. Event of type {EventType} was dropped.", e.GetType().Name);
+            // Check if we're disposed before attempting to write to the channel
+            if (IsDisposed || _cancellationTokenSource.IsCancellationRequested)
+            {
+                _logger.LogDebug("Event of type {EventType} was discarded because the subscription system is disposed or being disposed.", e.GetType().Name);
+                return;
+            }
+
+            try
+            {
+                if (!_eventChannel.Writer.TryWrite(Tuple.Create(sender, e)))
+                {
+                    // Only log as warning if we're not being disposed
+                    if (!IsDisposed && !_cancellationTokenSource.IsCancellationRequested)
+                    {
+                        _logger.LogWarning("Event channel is full or closed. Event of type {EventType} was dropped.", e.GetType().Name);
+                    }
+                    else
+                    {
+                        _logger.LogDebug("Event of type {EventType} was discarded during disposal process.", e.GetType().Name);
+                    }
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // Channel writer is completed, this is expected during disposal
+                if (!IsDisposed && !_cancellationTokenSource.IsCancellationRequested)
+                {
+                    _logger.LogWarning("Attempted to write to a completed channel. Event of type {EventType} was dropped.", e.GetType().Name);
+                }
+                else
+                {
+                    _logger.LogDebug("Event of type {EventType} was discarded because channel is completed during disposal.", e.GetType().Name);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error dispatching event of type {EventType}.", e.GetType().Name);
+            }
         }
 
         private async Task ConsumeEventsAsync(CancellationToken cancellationToken)
@@ -298,7 +335,9 @@ namespace Sufficit.Asterisk.Manager
         {
             if (IsDisposed) return;
             
-            _logger.LogInformation("Starting disposal of AsteriskManagerSubscriptions");
+            _logger.LogInformation("Starting disposal of AsteriskEventManager");
+            
+            // Mark as disposed early to prevent new events from being dispatched
             IsDisposed = true;
 
             try
@@ -310,9 +349,15 @@ namespace Sufficit.Asterisk.Manager
                 }
 
                 // 2. Complete the channel writer to stop accepting new events
-                if (!_eventChannel.Writer.TryComplete())
+                // Use a try-catch as the writer might already be completed
+                try
                 {
-                    _logger.LogWarning("Channel writer was already completed");
+                    _eventChannel.Writer.Complete();
+                }
+                catch (InvalidOperationException)
+                {
+                    // Writer was already completed, this is fine
+                    _logger.LogDebug("Channel writer was already completed during disposal");
                 }
 
                 // 3. Wait for the consumer task to finish processing remaining events
@@ -320,12 +365,25 @@ namespace Sufficit.Asterisk.Manager
                 {
                     try
                     {
-                        await _consumerTask.ConfigureAwait(false);
+                        // Give a reasonable timeout for the consumer to finish
+                        using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+                        {
+                            var completedTask = await Task.WhenAny(_consumerTask, Task.Delay(Timeout.Infinite, timeoutCts.Token)).ConfigureAwait(false);
+                            if (completedTask == _consumerTask)
+                            {
+                                // Consumer task completed normally, await it to get any exceptions
+                                await _consumerTask.ConfigureAwait(false);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Consumer task did not complete within timeout during disposal");
+                            }
+                        }
                     }
                     catch (OperationCanceledException)
                     {
-                        // Expected when cancellation token is triggered
-                        _logger.LogDebug("Consumer task completed via cancellation");
+                        // Expected when cancellation token is triggered or timeout occurs
+                        _logger.LogDebug("Consumer task completed via cancellation or timeout");
                     }
                     catch (Exception ex)
                     {
@@ -354,11 +412,11 @@ namespace Sufficit.Asterisk.Manager
                 // 6. Dispose cancellation token source
                 _cancellationTokenSource?.Dispose();
 
-                _logger.LogInformation("AsteriskManagerSubscriptions disposal completed successfully");
+                _logger.LogInformation("AsteriskEventManager disposal completed successfully");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during AsteriskManagerSubscriptions disposal");
+                _logger.LogError(ex, "Error during AsteriskEventManager disposal");
                 throw;
             }
         }
@@ -366,11 +424,11 @@ namespace Sufficit.Asterisk.Manager
         /// <summary>
         /// Finalizer to ensure resources are cleaned up if Dispose is not called
         /// </summary>
-        ~AsteriskManagerSubscriptions()
+        ~AsteriskEventManager()
         {
             if (!IsDisposed)
             {
-                _logger.LogWarning("AsteriskManagerSubscriptions was not properly disposed. Consider using 'using' statement or calling Dispose/DisposeAsync explicitly.");
+                _logger.LogWarning("AsteriskEventManager was not properly disposed. Consider using 'using' statement or calling Dispose/DisposeAsync explicitly.");
                 
                 // For finalizer, we can only do synchronous cleanup
                 try

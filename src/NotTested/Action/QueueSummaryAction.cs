@@ -1,51 +1,38 @@
 ﻿using System;
+using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Events;
 
 namespace AsterNET.Manager.Action
 {
     /// <summary>
-    /// Show queue summary
+    /// The QueueSummaryAction requests summary information about all queues.
+    /// For each queue a QueueSummaryEvent is generated. After all summary information
+    /// has been reported a QueueSummaryCompleteEvent is generated.
+    /// Available since Asterisk 1.4
     /// </summary>
-    /// <seealso cref="Manager.Action.QueueStatusAction" />
+    /// <seealso cref="QueueSummaryEvent" />
+    /// <seealso cref="QueueSummaryCompleteEvent" />
     public class QueueSummaryAction : ManagerActionEvent
     {
-        #region Action
+        /// <summary>
+        /// Gets the name of this action.
+        /// </summary>
+        /// <value>Always returns "QueueSummary"</value>
+        public override string Action => "QueueSummary";
 
         /// <summary>
-        ///     Get the name of this action, i.e. "Filter".
+        /// Gets or sets the queue name filter.
+        /// When specified, only information about the named queue is returned.
         /// </summary>
-        public override string Action
-        {
-            get { return "QueueSummary"; }
-        }
-
-        #endregion
-
-        #region MyRegion
+        public string? Queue { get; set; }
 
         /// <summary>
-        ///     Name of queue
+        /// Returns the event type that indicates completion of the QueueSummary action.
         /// </summary>
-        public string Queue { get; set; }
-
-        #endregion
-
-        #region QueueSummaryAction(string queue)
-
-        public QueueSummaryAction(string queue)
-        {
-            Queue = queue;
-        }
-
-        #endregion
-
-        #region ActionCompleteEventClass()
-
+        /// <returns>The Type of QueueSummaryCompleteEvent</returns>
         public override Type ActionCompleteEventClass()
         {
-            return typeof(QueueSummaryEvent);
+            return typeof(QueueSummaryCompleteEvent);
         }
-
-        #endregion
     }
 }

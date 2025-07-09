@@ -1,26 +1,32 @@
 using System;
+using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Events;
 
 namespace AsterNET.Manager.Action
 {
     /// <summary>
-    ///     Retrieves a list of all defined SIP peers.<br />
-    ///     For each peer that is found a PeerEntryEvent is sent by Asterisk containing
-    ///     the details. When all peers have been reported a PeerlistCompleteEvent is sent.<br />
-    ///     Available since Asterisk 1.2
+    /// The SIPPeersAction requests the state of all SIP peers.
+    /// For each SIP peer a PeerEntryEvent is generated. After the state of all peers has been 
+    /// reported a PeerlistCompleteEvent is generated.
+    /// Available since Asterisk 1.2
     /// </summary>
-    /// <seealso cref="Manager.Event.PeerEntryEvent" />
-    /// <seealso cref="Manager.Event.PeerlistCompleteEvent" />
+    /// <seealso cref="PeerEntryEvent" />
+    /// <seealso cref="PeerlistCompleteEvent" />
     public class SIPPeersAction : ManagerActionEvent
     {
-        public override string Action
-        {
-            get { return "SIPPeers"; }
-        }
+        /// <summary>
+        /// Gets the name of this action.
+        /// </summary>
+        /// <value>Always returns "SIPPeers"</value>
+        public override string Action => "SIPPeers";
 
+        /// <summary>
+        /// Returns the event type that indicates completion of the SIPPeers action.
+        /// </summary>
+        /// <returns>The Type of PeerlistCompleteEvent</returns>
         public override Type ActionCompleteEventClass()
         {
-            return typeof (PeerlistCompleteEvent);
+            return typeof(PeerlistCompleteEvent);
         }
     }
 }

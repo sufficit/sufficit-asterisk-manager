@@ -1,14 +1,16 @@
 using System;
+using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Events;
 
 namespace AsterNET.Manager.Action
 {
     /// <summary>
-    ///     Retrieves an entry in the Asterisk database for a given family and key.<br />
+    ///     Retrieves an entry in the Asterisk database for a given family and key.
     ///     If an entry is found a DBGetResponseEvent is sent by Asterisk containing the
     ///     value, otherwise a ManagerError indicates that no entry matches.
+    ///     Available since Asterisk 1.2
     /// </summary>
-    /// <seealso cref="AsterNET.Manager.Event.DBGetResponseEvent" />
+    /// <seealso cref="DBGetResponseEvent"/>
     public class DBGetAction : ManagerActionEvent
     {
         /// <summary>
@@ -30,30 +32,29 @@ namespace AsterNET.Manager.Action
             Key = key;
         }
 
-        public override string Action
-        {
-            get { return "DBGet"; }
-        }
+        /// <summary>
+        ///     Gets the name of this action.
+        /// </summary>
+        /// <value>Always returns "DBGet"</value>
+        public override string Action => "DBGet";
 
         /// <summary>
-        ///     Returns the family of the key.
+        ///     Gets or sets the family (namespace) of the key.
         /// </summary>
-        /// <returns>
-        ///     the family of the key.
-        /// </returns>
-        /// <param name="family">
-        ///     the family of the key.
-        /// </param>
-        public string Family { get; set; }
+        public string? Family { get; set; }
 
         /// <summary>
-        ///     Get/Set the the key of the entry to retrieve.
+        ///     Gets or sets the key to retrieve.
         /// </summary>
-        public string Key { get; set; }
+        public string? Key { get; set; }
 
+        /// <summary>
+        ///     Returns the event type that indicates completion of the DBGet action.
+        /// </summary>
+        /// <returns>The Type of DBGetResponseEvent</returns>
         public override Type ActionCompleteEventClass()
         {
-            return typeof (DBGetResponseEvent);
+            return typeof(DBGetResponseEvent);
         }
     }
 }

@@ -6,9 +6,11 @@ using System.Linq;
 namespace Sufficit.Asterisk.Manager
 {   
     /// <summary>
-    /// Implementação concreta que herda de ManagerInvokable e lida com um tipo de evento específico <T>.
+    /// Handles subscription and event dispatch for a specific Asterisk Manager event type.
+    /// Each instance manages handlers for one specific event type (T).
     /// </summary>
-    public class ManagerEventHandler<T> : ManagerInvokable where T : IManagerEvent
+    /// <typeparam name="T">The specific type of Asterisk Manager event this subscription handles</typeparam>
+    public class AsteriskEventSubscription<T> : ManagerInvokable where T : IManagerEvent
     {
         private event EventHandler<T>? Handler;
 
@@ -17,7 +19,7 @@ namespace Sufficit.Asterisk.Manager
         public override int Count => Handler?.GetInvocationList().Length ?? 0;
 
         // O construtor agora chama o construtor da classe base para definir a Key.
-        public ManagerEventHandler(string key) : base(key) { }
+        public AsteriskEventSubscription(string key) : base(key) { }
 
         /// <summary>
         /// Invoca os assinantes de forma segura, garantindo que o tipo do evento corresponde.

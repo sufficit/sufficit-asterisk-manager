@@ -23,7 +23,7 @@ namespace Sufficit.Asterisk.Manager.Services
         /// <summary>
         /// Event handler for Asterisk manager events.
         /// </summary>
-        IAsteriskManagerSubscriptions Events { get; }
+        IAsteriskEventManager Events { get; }
 
         /// <summary>
         /// Last time an event was received from any provider.

@@ -52,7 +52,7 @@ namespace Sufficit.Asterisk.Manager.Services
         /// Event handler for Asterisk manager events.
         /// Must be implemented by derived classes.
         /// </summary>
-        public abstract IAsteriskManagerSubscriptions Events { get; }
+        public abstract IAsteriskEventManager Events { get; }
 
         /// <summary>
         /// Last time an event was received from any provider.
@@ -90,8 +90,8 @@ namespace Sufficit.Asterisk.Manager.Services
         /// Abstract method to get the event handler configuration.
         /// Derived classes must implement this to define how events are handled.
         /// </summary>
-        /// <returns>Configured AsteriskManagerSubscriptions instance</returns>
-        protected abstract IAsteriskManagerSubscriptions GetEventHandler();
+        /// <returns>Configured AsteriskEventManager instance</returns>
+        protected abstract IAsteriskEventManager GetEventHandler();
 
         /// <summary>
         /// Abstract method to get provider configurations.
@@ -206,7 +206,9 @@ namespace Sufficit.Asterisk.Manager.Services
                     var connection = await provider.ConnectAsync(true, cancellationToken);
 
                     // Connection successful - setup event listener for persistent monitoring
-                    connection.Use(Events);
+                    // IMPORTANT: Use the same event manager instance to preserve subscriptions
+                    // Don't dispose the old event manager as it should be shared across connections
+                    connection.Use(Events, disposable: false);
                     _logger.LogInformation("Provider {Title} connected successfully on attempt {Attempt}!", provider.Title, attempt);
 
                     // Reset delay for next potential connection cycle

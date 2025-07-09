@@ -52,8 +52,8 @@ namespace Sufficit.Asterisk.Manager.Connection
         public bool IsAuthenticated => _authenticator.IsAuthenticated;
         public Encoding SocketEncoding => _parameters.SocketEncoding;
 
-        private AsteriskManagerSubscriptions _events;
-        public IAsteriskManagerSubscriptions Events => _events;
+        private AsteriskEventManager _events;
+        public IAsteriskEventManager Events => _events;
 
         #endregion
 
@@ -76,7 +76,7 @@ namespace Sufficit.Asterisk.Manager.Connection
             // 2. Inicie a tarefa do consumidor em segundo plano
             _packetConsumerTask = Task.Run(ProcessPacketQueueAsync);
 
-            _events = new AsteriskManagerSubscriptions();
+            _events = new AsteriskEventManager();
 
             // updating default delimeters
             VarDelimiters = this.GetDelimiters();
@@ -139,10 +139,22 @@ namespace Sufficit.Asterisk.Manager.Connection
                 {
                     if (packet.ContainsKey("event"))
                     {
-                        var eventObject = _events.Build(packet);
-                        if (eventObject != null)
+                        // Check if the events system is available and not disposed
+                        var currentEvents = _events;
+                        if (currentEvents != null && !currentEvents.IsDisposed)
                         {
-                            _events.Dispatch(this, eventObject.Event);
+                            var eventObject = currentEvents.Build(packet);
+                            if (eventObject != null)
+                            {
+                                currentEvents.Dispatch(this, eventObject.Event);
+                            }
+                        }
+                        else
+                        {
+                            // Log only at debug level during normal operation
+                            // This can happen briefly during reconnection
+                            _logger.LogDebug("Event packet received but events system is disposed or null. Event type: {EventType}", 
+                                packet.ContainsKey("event") ? packet["event"] : "Unknown");
                         }
                     }
                     else if (packet.ContainsKey("response"))
@@ -154,11 +166,19 @@ namespace Sufficit.Asterisk.Manager.Connection
                         _logger.LogWarning("unrecognized packet: {json}", packet.ToJson());
                     }
                 }
+                catch (ObjectDisposedException)
+                {
+                    // Expected when events system is disposed during shutdown, log at debug level
+                    _logger.LogDebug("Events system was disposed while processing packet");
+                    break; // Exit the loop gracefully
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error processing packet from queue.");
                 }
             }
+
+            _logger.LogDebug("Packet processing loop has ended");
         }
 
         #endregion
@@ -244,12 +264,37 @@ namespace Sufficit.Asterisk.Manager.Connection
             _events.RegisterUserEventClass(userEventClass);
         }
 
-        public void Use(IAsteriskManagerSubscriptions events, bool disposable = false)
+        public void Use(IAsteriskEventManager events, bool disposable = false)
         {
-            _events?.Dispose();
+            if (events == null) throw new ArgumentNullException(nameof(events));
+            
+            // If the new event manager is the same instance, no need to replace
+            if (ReferenceEquals(_events, events))
+            {
+                _logger.LogDebug("Event manager is already the same instance, no replacement needed");
+                return;
+            }
 
-            // Atribui o novo sistema de eventos.
-            _events = events as AsteriskManagerSubscriptions ?? throw new ArgumentException("events must be of type AsteriskManagerSubscriptions", nameof(events));
+            var oldEvents = _events;
+            
+            // Assign the new event system
+            _events = events as AsteriskEventManager ?? throw new ArgumentException("events must be of type AsteriskEventManager", nameof(events));
+            
+            _logger.LogDebug("Event manager replaced during reconnection");
+            
+            // Only dispose the old event manager if specified and it's different from the new one
+            if (disposable && oldEvents != null && !ReferenceEquals(oldEvents, _events))
+            {
+                try
+                {
+                    oldEvents.Dispose();
+                    _logger.LogDebug("Old event manager disposed after replacement");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error disposing old event manager during replacement");
+                }
+            }
         }
 
         #endregion

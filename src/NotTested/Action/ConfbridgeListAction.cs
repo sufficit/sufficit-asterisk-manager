@@ -1,40 +1,38 @@
 ﻿using System;
+using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Events;
 
 namespace AsterNET.Manager.Action
 {
-    /*
-        https://wiki.asterisk.org/wiki/display/AST/ConfBridge+10#ConfBridge10-ConfBridgeAsteriskManagerInterface%28AMI%29Events
-        Action: ConfbridgeList
-        Conference: 1111
-    */
-
     /// <summary>
-    ///     Lists all users in a particular ConfBridge conference. ConfbridgeList will follow as separate events,
-    ///     followed by a final event called ConfbridgeListComplete
+    /// The ConfbridgeListAction requests all current ConfBridge conferences.
+    /// For each conference a ConfbridgeListEvent is generated. After all conferences have been listed
+    /// a ConfbridgeListCompleteEvent is generated.
+    /// Available since Asterisk 10.0
     /// </summary>
+    /// <seealso cref="ConfbridgeListEvent" />
+    /// <seealso cref="ConfbridgeListCompleteEvent" />
     public class ConfbridgeListAction : ManagerActionEvent
     {
         /// <summary>
-        ///     Lists all users in a particular ConfBridge conference. ConfbridgeList will follow as separate events,
-        ///     followed by a final event called ConfbridgeListComplete
+        /// Gets the name of this action.
         /// </summary>
-        /// <param name="conference"></param>
-        public ConfbridgeListAction(string conference)
-        {
-            Conference = conference;
-        }
+        /// <value>Always returns "ConfbridgeList"</value>
+        public override string Action => "ConfbridgeList";
 
-        public string Conference { get; set; }
+        /// <summary>
+        /// Gets or sets the conference identifier filter.
+        /// When specified, only information about the named conference is returned.
+        /// </summary>
+        public string? Conference { get; set; }
 
-        public override string Action
-        {
-            get { return "ConfbridgeList"; }
-        }
-
+        /// <summary>
+        /// Returns the event type that indicates completion of the ConfbridgeList action.
+        /// </summary>
+        /// <returns>The Type of ConfbridgeListCompleteEvent</returns>
         public override Type ActionCompleteEventClass()
         {
-            return typeof (ConfbridgeListCompleteEvent);
+            return typeof(ConfbridgeListCompleteEvent);
         }
     }
 }

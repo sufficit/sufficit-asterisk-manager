@@ -1,212 +1,151 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Events;
 
 namespace AsterNET.Manager.Action
 {
     /// <summary>
-    ///     The OriginateAction generates an outgoing call to the extension in the given
-    ///     context with the given priority or to a given application with optional
-    ///     parameters.<br />
-    ///     If you want to connect to an extension use the properties context, exten and
-    ///     priority. If you want to connect to an application use the properties
-    ///     application and data if needed. Note that no call detail record will be
-    ///     written when directly connecting to an application, so it may be better to
-    ///     connect to an extension that starts the application you wish to connect to.<br />
-    ///     The response to this action is sent when the channel has been answered and
-    ///     asterisk starts connecting it to the given extension. So be careful not to
-    ///     choose a too short timeout when waiting for the response.<br />
-    ///     If you set async to true Asterisk reports an OriginateSuccess-
-    ///     and OriginateFailureEvents. The action id of these events equals the action
-    ///     id of this OriginateAction.
+    /// The OriginateAction generates an outgoing call to the extension in the given
+    /// context with the given priority or to a given application with optional
+    /// parameters.
+    /// If you want to connect to an extension use the properties context, exten and
+    /// priority. If you want to connect to an application use the properties
+    /// application and data if needed. Note that no call detail record will be
+    /// written when directly connecting to an application, so it may be better to
+    /// connect to an extension that starts the application you wish to connect to.
+    /// The response to this action is sent when the channel has been answered and
+    /// asterisk starts connecting it to the given extension. So be careful not to
+    /// choose a too short timeout when waiting for the response.
+    /// If you set async to true Asterisk reports an OriginateSuccess-
+    /// and OriginateFailureEvents. The action id of these events equals the action
+    /// id of this OriginateAction.
     /// </summary>
-    /// <seealso cref="AsterNET.Manager.Event.OriginateSuccessEvent" />
-    /// <seealso cref="AsterNET.Manager.Event.OriginateFailureEvent" />
+    /// <seealso cref="OriginateSuccessEvent" />
+    /// <seealso cref="OriginateFailureEvent" />
     public class OriginateAction : ManagerActionEvent, IActionVariable
     {
-        #region Action 
-
         /// <summary>
-        ///     Get the name of this action, i.e. "Originate".
+        /// Gets the name of this action.
         /// </summary>
-        public override string Action
-        {
-            get { return "Originate"; }
-        }
-
-        #endregion
-
-        #region Account 
+        /// <value>Always returns "Originate"</value>
+        public override string Action => "Originate";
 
         /// <summary>
-        ///     Get/Set the account code to use for the originated call.
-        ///     The account code is included in the call detail record generated for this call and will be used for billing.
+        /// Variable: concat all items here ... 
+        /// Can have multiple keys with the same name
         /// </summary>
-        public string Account { get; set; }
-
-        #endregion
-
-        #region CallerId 
+        public new NameValueCollection? Variable { get; set; }
 
         /// <summary>
-        ///     Get/Set the caller id to set on the outgoing channel.
+        /// Gets or sets the account code to use for the originated call.
+        /// The account code is included in the call detail record generated for this call and will be used for billing.
         /// </summary>
-        public string CallerId { get; set; }
-
-        #endregion
-
-        #region Channel 
+        public string? Account { get; set; }
 
         /// <summary>
-        ///     Get/Set Channel on which to originate the call (The same as you specify in the Dial application command)<br />
-        ///     This property is required.
+        /// Gets or sets the caller id to set on the outgoing channel.
         /// </summary>
-        public string Channel { get; set; }
-
-        #endregion
-
-        #region ChannelId
+        public string? CallerId { get; set; }
 
         /// <summary>
-        ///     Get/Set originated channel id
+        /// Gets or sets Channel on which to originate the call (The same as you specify in the Dial application command)
+        /// This property is required.
         /// </summary>
-        public string ChannelId { get; set; }
-
-        #endregion
-
-        #region Context 
+        public string? Channel { get; set; }
 
         /// <summary>
-        ///     Get/Set the name of the context of the extension to connect to.
-        ///     If you set the context you also have to set the exten and priority properties.
+        /// Gets or sets originated channel id
         /// </summary>
-        public string Context { get; set; }
-
-        #endregion
-
-        #region Exten 
+        public string? ChannelId { get; set; }
 
         /// <summary>
-        ///     Get/Ser the extension to connect to.
-        ///     If you set the extension you also have to set the context and priority properties.
+        /// Gets or sets the name of the context of the extension to connect to.
+        /// If you set the context you also have to set the exten and priority properties.
         /// </summary>
-        public string Exten { get; set; }
-
-        #endregion
-
-        #region Priority 
+        public string? Context { get; set; }
 
         /// <summary>
-        ///     Get /Set the priority of the extension to connect to.
-        ///     If you set the priority you also have to set the context and exten properties.
+        /// Gets or sets the extension to connect to.
+        /// If you set the extension you also have to set the context and priority properties.
         /// </summary>
-        public string Priority { get; set; }
-
-        #endregion
-
-        #region Application 
+        public string? Exten { get; set; }
 
         /// <summary>
-        ///     Get/Set Application to use on connect (use Data for parameters)
+        /// Gets or sets the priority of the extension to connect to.
+        /// If you set the priority you also have to set the context and exten properties.
         /// </summary>
-        public string Application { get; set; }
-
-        #endregion
-
-        #region Data 
+        public string? Priority { get; set; }
 
         /// <summary>
-        ///     Get/Set the parameters to pass to the application.
-        ///     Data if Application parameter is user
+        /// Gets or sets Application to use on connect (use Data for parameters)
         /// </summary>
-        /// <summary> Sets the parameters to pass to the application.</summary>
-        public string Data { get; set; }
-
-        #endregion
-
-        #region Async 
+        public string? Application { get; set; }
 
         /// <summary>
-        ///     Get/Set true if this is a fast origination.<br />
-        ///     For the origination to be asynchronous (allows multiple calls to be generated without waiting for a response).
-        ///     <br />
-        ///     Will send OriginateSuccess- and OriginateFailureEvents.
+        /// Gets or sets the parameters to pass to the application.
+        /// Data if Application parameter is user
+        /// </summary>
+        public string? Data { get; set; }
+
+        /// <summary>
+        /// Gets or sets true if this is a fast origination.
+        /// For the origination to be asynchronous (allows multiple calls to be generated without waiting for a response).
+        /// Will send OriginateSuccess- and OriginateFailureEvents.
         /// </summary>
         public bool Async { get; set; }
 
-        #endregion
-
-        #region ActionCompleteEventClass 
-
-        public override Type ActionCompleteEventClass()
-        {
-            return typeof (OriginateResponseEvent);
-        }
-
-        #endregion
-
-        #region Timeout 
-
         /// <summary>
-        ///     Get/Set the timeout for the origination in milliseconds.<br />
-        ///     The channel must be answered within this time, otherwise the origination
-        ///     is considered to have failed and an OriginateFailureEvent is generated.<br />
-        ///     If not set, Asterisk assumes a default value of 30000 meaning 30 seconds.
+        /// Gets or sets the timeout for the origination in milliseconds.
+        /// The channel must be answered within this time, otherwise the origination
+        /// is considered to have failed and an OriginateFailureEvent is generated.
+        /// If not set, Asterisk assumes a default value of 30000 meaning 30 seconds.
         /// </summary>
         public int Timeout { get; set; }
 
-        #endregion
-
-        #region GetVariables() 
+        /// <summary>
+        /// Returns the event type that indicates completion of the Originate action.
+        /// </summary>
+        /// <returns>The Type of OriginateResponseEvent</returns>
+        public override Type ActionCompleteEventClass()
+        {
+            return typeof(OriginateResponseEvent);
+        }
 
         /// <summary>
-        ///     Get the variables dictionary to set on the originated call.
+        /// Get the variables dictionary to set on the originated call.
         /// </summary>
         public NameValueCollection GetVariables()
         {
             return Variable ?? new NameValueCollection();
         }
 
-        #endregion
-
-        #region SetVariables(IDictionary vars) 
-
         /// <summary>
-        ///     Set the variables dictionary to set on the originated call.
+        /// Set the variables dictionary to set on the originated call.
         /// </summary>
         public void SetVariables(NameValueCollection vars)
         {
             Variable = vars;
         }
 
-        #endregion
-
-        #region GetVariable(string name, string val) 
-
         /// <summary>
-        ///     Gets a variable on the originated call. Replaces any existing variable with the same name.
+        /// Gets a variable on the originated call. Replaces any existing variable with the same name.
         /// </summary>
         public string GetVariable(string key)
         {
             if (Variable == null)
                 return string.Empty;
-            return Variable[key];
+            return Variable[key] ?? string.Empty;
         }
 
-        #endregion
-
-        #region SetVariable(string name, string val) 
-
         /// <summary>
-        ///     Sets a variable dictionary on the originated call. Replaces any existing variable with the same name.
+        /// Sets a variable dictionary on the originated call. Replaces any existing variable with the same name.
         /// </summary>
         public void SetVariable(string key, string value)
         {
             Variable ??= new NameValueCollection();
             Variable.Set(key, value);
         }
-
-        #endregion
     }
 }

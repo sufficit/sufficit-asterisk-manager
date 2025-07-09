@@ -1,45 +1,37 @@
 using System;
+using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Events;
 
 namespace AsterNET.Manager.Action
 {
     /// <summary>
-    ///     Retrieves a the details about a given SIP peer.<br />
-    ///     For a PeerEntryEvent is sent by Asterisk containing the details of the peer
-    ///     followed by a PeerlistCompleteEvent.<br />
-    ///     Available since Asterisk 1.2
+    /// The SIPShowPeerAction requests information about a specific SIP peer.
+    /// For each SIP peer a SIPShowPeerEvent is generated. After all information has been 
+    /// reported a PeerlistCompleteEvent is generated.
+    /// Available since Asterisk 1.2
     /// </summary>
-    /// <seealso cref="Manager.Event.PeerEntryEvent" />
-    /// <seealso cref="Manager.Event.PeerlistCompleteEvent" />
+    /// <seealso cref="PeerEntryEvent" />
+    /// <seealso cref="PeerlistCompleteEvent" />
     public class SIPShowPeerAction : ManagerActionEvent
     {
-        /// <summary> Creates a new empty SIPShowPeerAction.</summary>
-        public SIPShowPeerAction()
-        {
-        }
+        /// <summary>
+        /// Gets the name of this action.
+        /// </summary>
+        /// <value>Always returns "SIPShowPeer"</value>
+        public override string Action => "SIPShowPeer";
 
         /// <summary>
-        ///     Creates a new SIPShowPeerAction that requests the details about the given SIP peer.
+        /// Gets or sets the name of the SIP peer to show information for.
         /// </summary>
-        public SIPShowPeerAction(string peer)
-        {
-            this.Peer = peer;
-        }
-
-        public override string Action
-        {
-            get { return "SIPShowPeer"; }
-        }
+        public string? Peer { get; set; }
 
         /// <summary>
-        ///     Get/Set the name of the peer to retrieve.<br />
-        ///     This parameter is mandatory.
+        /// Returns the event type that indicates completion of the SIPShowPeer action.
         /// </summary>
-        public string Peer { get; set; }
-
+        /// <returns>The Type of PeerlistCompleteEvent</returns>
         public override Type ActionCompleteEventClass()
         {
-            return typeof (PeerlistCompleteEvent);
+            return typeof(PeerlistCompleteEvent);
         }
     }
 }

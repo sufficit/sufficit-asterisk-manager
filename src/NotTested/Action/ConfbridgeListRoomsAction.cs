@@ -1,4 +1,5 @@
 ﻿using System;
+using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Events;
 
 namespace AsterNET.Manager.Action
@@ -9,14 +10,19 @@ namespace AsterNET.Manager.Action
     /// </summary>
     public class ConfbridgeListRoomsAction : ManagerActionEvent
     {
-        public override string Action
-        {
-            get { return "ConfbridgeListRooms"; }
-        }
+        /// <summary>
+        /// Gets the name of this action.
+        /// </summary>
+        /// <value>Always returns "ConfbridgeListRooms"</value>
+        public override string Action => "ConfbridgeListRooms";
 
+        /// <summary>
+        /// Returns the event type that indicates completion of the ConfbridgeListRooms action.
+        /// </summary>
+        /// <returns>The Type of ConfbridgeListRoomsCompleteEvent</returns>
         public override Type ActionCompleteEventClass()
         {
-            return typeof (ConfbridgeListRoomsCompleteEvent);
+            return typeof(ConfbridgeListRoomsCompleteEvent);
         }
     }
 }
