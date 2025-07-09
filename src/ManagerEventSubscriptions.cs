@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Sufficit.Asterisk.Manager.Connection;
 using Sufficit.Asterisk.Manager.Events;
 
 namespace Sufficit.Asterisk.Manager
@@ -18,137 +15,66 @@ namespace Sufficit.Asterisk.Manager
     /// Coordinates multiple event subscriptions and handles event dispatching using a modern,
     /// high-performance, non-blocking producer-consumer pattern specifically for AMI events.
     /// </summary>
-    /// <remarks>Designed to be used on multiple instances of <see cref="ManagerConnection"/></remarks>
+    /// <remarks>
+    /// Clean Design:
+    /// - ManagerConnection always creates its own internal instance
+    /// - External instances can be optionally used via Use() method
+    /// - Internal instance is always disposed with the connection
+    /// - External instances are never disposed by the connection
+    /// 
+    /// Event Building:
+    /// - Event building logic has been moved to ManagerEventBuilder static class
+    /// - This class focuses solely on subscription management and event dispatching
+    /// </remarks>
     public class ManagerEventSubscriptions : IManagerEventSubscriptions, IAsyncDisposable
     {
-        #region Static Section (Original Logic)
+        #region Static Fields and Logger
 
         private static readonly ILogger _logger = ManagerLogger.CreateLogger<ManagerEventSubscriptions>();
-        private static readonly object _lockDiscovered = new object();
-        private static IEnumerable<Type>? _discoveredTypes;
 
-        public static string GetEventKey<T>() where T : IManagerEvent => GetEventKey(typeof(T));
-        public static string GetEventKey(IManagerEvent e) => GetEventKey(e.GetType());
-        public static string GetEventKey(Type e) => GetEventKey(e.Name);
-        public static string GetEventKey(string @event)
-        {
-            if (string.IsNullOrWhiteSpace(@event))
-                throw new ArgumentNullException(nameof(@event));
-
-            var key = @event.Trim().ToLowerInvariant();
-            if (key.EndsWith("event"))
-                key = key.Substring(0, key.Length - 5);
-            return key;
-        }
-
-        private static string StripInternalActionId(string actionId)
-        {
-            if (string.IsNullOrEmpty(actionId)) return string.Empty;
-            int delimiterIndex = actionId.IndexOf(Common.INTERNAL_ACTION_ID_DELIMITER);
-            if (delimiterIndex < 0) return actionId;
-            return actionId.Length > delimiterIndex + 1
-                ? actionId.Substring(delimiterIndex + 1).Trim()
-                : string.Empty;
-        }
-
-        private static string GetInternalActionId(string actionId)
-        {
-            if (string.IsNullOrEmpty(actionId)) return string.Empty;
-            int delimiterIndex = actionId.IndexOf(Common.INTERNAL_ACTION_ID_DELIMITER);
-            return delimiterIndex > 0 ? actionId.Substring(0, delimiterIndex).Trim() : string.Empty;
-        }
-
-        private static bool AssemblyMatch(Assembly assembly)
-        {
-            return !assembly.IsDynamic && assembly.FullName != null &&
-                   (assembly.FullName.StartsWith(nameof(Sufficit), StringComparison.InvariantCultureIgnoreCase) ||
-                    assembly.FullName.StartsWith(nameof(AsterNET), StringComparison.InvariantCultureIgnoreCase));
-        }
-
-        private static IEnumerable<Type> GetDiscoveredTypes()
-        {
-            lock (_lockDiscovered)
-            {
-                if (_discoveredTypes == null)
-                {
-                    var managerInterface = typeof(IManagerEvent);
-                    var discovered = new List<Type>();
-                    var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-                    foreach (var assembly in assemblies.Where(AssemblyMatch))
-                    {
-                        try
-                        {
-                            var types = assembly.GetTypes();
-                            discovered.AddRange(types.Where(type => type.IsPublic && !type.IsAbstract && managerInterface.IsAssignableFrom(type)));
-                        }
-                        catch (ReflectionTypeLoadException typeLoadException)
-                        {
-                            foreach (var loaderException in typeLoadException.LoaderExceptions.Where(ex => ex != null))
-                                _logger.LogError(loaderException, "Error getting types on assembly: {assembly}", assembly.FullName);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Generic error getting types on assembly: {assembly}", assembly.FullName);
-                        }
-                    }
-                    _discoveredTypes = discovered;
-                }
-                return _discoveredTypes;
-            }
-        }
-
-        private static void RegisterEventClass(Dictionary<string, ConstructorInfo> list, Type clazz)
-        {
-            if (clazz.IsAbstract || !typeof(IManagerEvent).IsAssignableFrom(clazz)) return;
-
-            string eventKey = GetEventKey(clazz);
-            if (typeof(UserEvent).IsAssignableFrom(clazz) && !eventKey.StartsWith("user", StringComparison.OrdinalIgnoreCase))
-                eventKey = "user" + eventKey;
-
-            if (list.ContainsKey(eventKey)) return;
-
-            var constructor = clazz.GetConstructor(Type.EmptyTypes) ?? clazz.GetConstructor(new[] { typeof(ManagerConnection) });
-
-            if (constructor != null && constructor.IsPublic)
-                list.Add(eventKey, constructor);
-            else
-                _logger.LogWarning("RegisterEventClass: {TypeName} has no public default or (ManagerConnection) constructor and will be ignored.", clazz.FullName);
-        }
-
-        private static void RegisterBuiltinEventClasses(Dictionary<string, ConstructorInfo> list)
-        {
-            foreach (var type in GetDiscoveredTypes())
-                RegisterEventClass(list, type);
-        }
         #endregion
 
-        #region Instance Section (Refactored Logic)
+        #region Instance Fields
 
         public bool FireAllEvents { get; set; } = false;
 
         private readonly ConcurrentDictionary<string, ManagerInvokable> _handlers;
         private readonly Channel<Tuple<object?, IManagerEvent>> _eventChannel;
-        private readonly Dictionary<string, ConstructorInfo> _registeredEventClasses;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly Task _consumerTask;
 
+        #endregion
+
+        #region Constructor
+
+        /// <summary>
+        /// Default constructor for standard usage (created by ManagerConnection).
+        /// Will be disposed automatically when the connection is disposed.
+        /// </summary>
         public ManagerEventSubscriptions()
         {
             _handlers = new ConcurrentDictionary<string, ManagerInvokable>();
             _eventChannel = Channel.CreateUnbounded<Tuple<object?, IManagerEvent>>(new UnboundedChannelOptions { SingleReader = true });
             _cancellationTokenSource = new CancellationTokenSource();
 
-            _registeredEventClasses = new Dictionary<string, ConstructorInfo>();
-            RegisterBuiltinEventClasses(_registeredEventClasses);
-
             _consumerTask = ConsumeEventsAsync(_cancellationTokenSource.Token);
+
+            _logger.LogDebug("ManagerEventSubscriptions created with standard disposal behavior");
         }
+
+        #endregion
 
         #region Public Subscription API
 
+        /// <summary>
+        /// Subscribe to events of a specific type.
+        /// </summary>
+        /// <typeparam name="T">The type of event to subscribe to</typeparam>
+        /// <param name="action">The event handler to invoke when the event occurs</param>
+        /// <returns>A disposable object to unsubscribe from the event</returns>
         public IDisposable On<T>(EventHandler<T> action) where T : IManagerEvent
         {
-            string eventKey = GetEventKey<T>();
+            string eventKey = ManagerEventBuilder.GetEventKey<T>();
 
             var invokable = _handlers.GetOrAdd(eventKey, key =>
             {
@@ -163,6 +89,11 @@ namespace Sufficit.Asterisk.Manager
             throw new InvalidOperationException($"Handler type mismatch for event key: {eventKey}.");
         }
 
+        /// <summary>
+        /// Handles cleanup when an event handler has no more subscribers.
+        /// </summary>
+        /// <param name="sender">The handler that changed</param>
+        /// <param name="e">Event arguments</param>
         private void OnHandlerChanged(object? sender, EventArgs e)
         {
             if (sender is ManagerInvokable handler && handler.Count == 0)
@@ -173,6 +104,12 @@ namespace Sufficit.Asterisk.Manager
 
         #region Event Dispatching (Producer-Consumer Model)
 
+        /// <summary>
+        /// Dispatches an event to all registered handlers.
+        /// Uses high-performance producer-consumer pattern with channels.
+        /// </summary>
+        /// <param name="sender">The source of the event</param>
+        /// <param name="e">The event to dispatch</param>
         public void Dispatch(object? sender, IManagerEvent e)
         {
             // Check if we're disposed before attempting to write to the channel
@@ -215,6 +152,12 @@ namespace Sufficit.Asterisk.Manager
             }
         }
 
+        /// <summary>
+        /// Background task that consumes events from the channel and dispatches them to handlers.
+        /// Runs for the lifetime of the subscription system.
+        /// </summary>
+        /// <param name="cancellationToken">Token to cancel the operation</param>
+        /// <returns>Task representing the async operation</returns>
         private async Task ConsumeEventsAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("Event consumer task started.");
@@ -225,8 +168,14 @@ namespace Sufficit.Asterisk.Manager
                     if (cancellationToken.IsCancellationRequested)
                         break;
 
-                    try { DispatchInternal(sender, evt); }
-                    catch (Exception ex) { _logger.LogError(ex, "Error during internal dispatch of event {EventType}.", evt.GetType().Name); }
+                    try 
+                    { 
+                        DispatchInternal(sender, evt); 
+                    }
+                    catch (Exception ex) 
+                    { 
+                        _logger.LogError(ex, "Error during internal dispatch of event {EventType}.", evt.GetType().Name); 
+                    }
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -243,25 +192,37 @@ namespace Sufficit.Asterisk.Manager
             }
         }
 
+        /// <summary>
+        /// Internal method that actually dispatches events to registered handlers.
+        /// Handles both specific and abstract event type matching.
+        /// </summary>
+        /// <param name="sender">The source of the event</param>
+        /// <param name="e">The event to dispatch</param>
         private void DispatchInternal(object? sender, IManagerEvent e)
         {
-            string eventKey = GetEventKey(e);
+            string eventKey = ManagerEventBuilder.GetEventKey(e);
             bool wasHandled = false;
 
+            // Try specific handler first
             if (_handlers.TryGetValue(eventKey, out var handler))
             {
                 handler.Invoke(sender, e);
                 wasHandled = true;
             }
 
+            // Try abstract/base type handlers
             var eventType = e.GetType();
-            var abstractHandlers = _handlers.Values.Where(h => h.GetType().GetGenericArguments()[0].IsAssignableFrom(eventType) && h.Key != eventKey);
+            var abstractHandlers = _handlers.Values.Where(h => 
+                h.GetType().GetGenericArguments()[0].IsAssignableFrom(eventType) && 
+                h.Key != eventKey);
+                
             foreach (var abstractHandler in abstractHandlers)
             {
                 abstractHandler.Invoke(sender, e);
                 wasHandled = true;
             }
 
+            // Fire unhandled event if no specific handlers and FireAllEvents is enabled
             if (!wasHandled && FireAllEvents)
             {
                 UnhandledEvent?.Invoke(sender, e);
@@ -270,48 +231,35 @@ namespace Sufficit.Asterisk.Manager
 
         #endregion
 
-        #region Build and Dispose
+        #region User Event Registration
 
-        public ManagerEventGeneric? Build(IDictionary<string, string> attributes)
+        /// <summary>
+        /// Registers a custom user event class for parsing specific user-defined events.
+        /// Delegates to ManagerEventBuilder for actual registration.
+        /// </summary>
+        /// <param name="userEventClass">The type of the user event to register</param>
+        public void RegisterUserEventClass(Type userEventClass)
         {
-            if (!attributes.TryGetValue("event", out var eventName)) return null;
-
-            string eventKey = GetEventKey(eventName);
-            if (eventKey == "user" && attributes.TryGetValue("userevent", out var userEventName) && !string.IsNullOrWhiteSpace(userEventName))
-            {
-                eventKey = "user" + userEventName.Trim().ToLowerInvariant();
-            }
-
-            _registeredEventClasses.TryGetValue(eventKey, out var constructor);
-
-            IManagerEvent genericEvent;
-            if (constructor != null)
-            {
-                try { genericEvent = (IManagerEvent)constructor.Invoke(null); }
-                catch (Exception ex) { _logger.LogError(ex, "Unable to create new instance of {eventKey}", eventKey); return null; }
-            }
-            else { genericEvent = new UnknownEvent(); }
-
-            var e = new ManagerEventGeneric(genericEvent);
-            ManagerResponseBuilder.SetAttributes(e, attributes);
-
-            if (e.Event is IResponseEvent responseEvent && responseEvent.ActionId != null)
-            {
-                responseEvent.InternalActionId = GetInternalActionId(responseEvent.ActionId);
-                responseEvent.ActionId = StripInternalActionId(responseEvent.ActionId);
-            }
-            return e;
+            ManagerEventBuilder.RegisterUserEventClass(userEventClass);
         }
 
-        public void RegisterUserEventClass(Type userEventClass)
-            => RegisterEventClass(_registeredEventClasses, userEventClass);
+        #endregion
 
-        #region DISPOSE
+        #region Disposal (Clean Standard Behavior)
 
+        /// <summary>
+        /// Gets a value indicating whether this instance has been disposed.
+        /// </summary>
         public bool IsDisposed { get; private set; }
 
         /// <summary>
-        /// Synchronous dispose method for IDisposable compatibility
+        /// Event triggered when an unhandled event is received.
+        /// </summary>
+        public event EventHandler<IManagerEvent>? UnhandledEvent;
+
+        /// <summary>
+        /// Standard synchronous dispose method.
+        /// Always disposes the instance (no ownership complexity).
         /// </summary>
         public void Dispose()
         {
@@ -329,7 +277,8 @@ namespace Sufficit.Asterisk.Manager
         }
 
         /// <summary>
-        /// Proper async dispose implementation
+        /// Standard asynchronous dispose method.
+        /// Always disposes the instance (no ownership complexity).
         /// </summary>
         public async ValueTask DisposeAsync()
         {
@@ -406,7 +355,6 @@ namespace Sufficit.Asterisk.Manager
 
                 // 5. Clear all collections
                 _handlers.Clear();
-                _registeredEventClasses.Clear();
                 UnhandledEvent = null;
 
                 // 6. Dispose cancellation token source
@@ -422,7 +370,7 @@ namespace Sufficit.Asterisk.Manager
         }
 
         /// <summary>
-        /// Finalizer to ensure resources are cleaned up if Dispose is not called
+        /// Finalizer to ensure resources are cleaned up if Dispose is not called.
         /// </summary>
         ~ManagerEventSubscriptions()
         {
@@ -437,7 +385,6 @@ namespace Sufficit.Asterisk.Manager
                     _cancellationTokenSource?.Cancel();
                     _cancellationTokenSource?.Dispose();
                     _handlers.Clear();
-                    _registeredEventClasses.Clear();
                     UnhandledEvent = null;
                 }
                 catch (Exception ex)
@@ -446,12 +393,6 @@ namespace Sufficit.Asterisk.Manager
                 }
             }
         }
-
-        #endregion
-
-        public event EventHandler<IManagerEvent>? UnhandledEvent;
-
-        #endregion
 
         #endregion
     }

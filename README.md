@@ -40,11 +40,11 @@ var response = await connection.SendActionAsync(myAction);
 // Multi-provider service example
 public class MyAsteriskService : AsteriskManagerService
 {
-    public override AsteriskManagerEvents Events { get; }
+    public override IManagerEventSubscriptions Events { get; }
     
-    protected override AsteriskManagerEvents GetEventHandler()
+    protected override IManagerEventSubscriptions GetEventHandler()
     {
-        var events = new AsteriskManagerEvents();
+        var events = new ManagerEventSubscriptions();
         events.On<NewChannelEvent>(OnNewChannel);
         return events;
     }
@@ -63,7 +63,8 @@ public class MyAsteriskService : AsteriskManagerService
             await provider.Connection.SendActionAsync(new CoreShowChannelsAction());
         }
     }
-}## ✨ Key Features
+}
+## ✨ Key Features
 
 ### 🔧 Core AMI Client Features
 * **Lightweight AMI client** for temporary connections
@@ -80,6 +81,13 @@ public class MyAsteriskService : AsteriskManagerService
 * **Connection state management** and cleanup
 * **Extensible architecture** for custom implementations
 
+### 🎯 **NEW: Smart Event Building & Logging**
+* **🆕 Intelligent unknown event detection** with helpful diagnostic information
+* **🆕 Smart logging deduplication** - no more log spam for repeated unknown events
+* **🆕 Custom UserEvent registration** with runtime discovery
+* **🆕 Performance optimized event parsing** with cached constructors
+* **🆕 Diagnostic methods** for monitoring unknown events and registration status
+
 ### 🌐 Framework Support
 * **Multi-target framework support** (.NET Standard 2.0, .NET 6-9)
 * **ASP.NET Core integration** (through derived implementations)
@@ -88,10 +96,8 @@ public class MyAsteriskService : AsteriskManagerService
 
 ## 🚀 Quick Start
 
-### 📦 Installation
-dotnet add package Sufficit.Asterisk.Manager
-### ⚡ Quick Operations
-// Configure provider
+### 📦 Installationdotnet add package Sufficit.Asterisk.Manager
+### ⚡ Quick Operations// Configure provider
 var options = Options.Create(new AMIProviderOptions 
 {
     Address = "asterisk.example.com",
@@ -111,11 +117,10 @@ var originateAction = new OriginateAction
 };
 
 var response = await connection.SendActionAsync(originateAction);
-### 🏗️ Multi-Provider Service
-// Inherit from base class
-public class MyTelephonyService : AsteriskManagerServiceBase
+### 🏗️ Multi-Provider Service// Inherit from base class
+public class MyTelephonyService : AsteriskManagerService
 {
-    public override AsteriskManagerEvents Events { get; }
+    public override IManagerEventSubscriptions Events { get; }
     
     public MyTelephonyService(ILoggerFactory loggerFactory) 
         : base(loggerFactory)
@@ -123,9 +128,9 @@ public class MyTelephonyService : AsteriskManagerServiceBase
         Events = GetEventHandler();
     }
     
-    protected override AsteriskManagerEvents GetEventHandler()
+    protected override IManagerEventSubscriptions GetEventHandler()
     {
-        var events = new AsteriskManagerEvents();
+        var events = new ManagerEventSubscriptions();
         events.FireAllEvents = true;
         
         // Subscribe to events
@@ -181,15 +186,56 @@ await service.StartAsync();
 
 // Service now monitors multiple Asterisk servers
 // with automatic reconnection and event handling
+## 🆕 **NEW: Smart Event Management**
+
+### Custom UserEvent Registration// Define custom UserEvent
+public class DoQueueStatusUserEvent : UserEvent
+{
+    public string? QueueName { get; set; }
+    public string? Status { get; set; }
+    public string? Agent { get; set; }
+}
+
+// Register at runtime
+ManagerEventBuilder.RegisterUserEventClass(typeof(DoQueueStatusUserEvent));
+
+// Now your custom events will be automatically detected and instantiated
+### Event Diagnostics and Monitoring// Check if an event type is registered
+bool isRegistered = ManagerEventBuilder.IsEventKeyRegistered("userdoqueuestatus");
+
+// Get count of registered event types
+int registeredCount = ManagerEventBuilder.RegisteredEventClassCount;
+
+// Get all registered event keys
+var allRegistered = ManagerEventBuilder.RegisteredEventKeys;
+
+// Get unknown events that have been encountered
+var unknownEvents = ManagerEventBuilder.GetUnknownEvents();
+foreach (var eventKey in unknownEvents)
+{
+    Console.WriteLine($"Unknown event encountered: {eventKey}");
+}
+
+// Clear unknown events log (useful for testing)
+ManagerEventBuilder.ClearUnknownEventsLog();
+### Smart Logging Benefits
+The new smart logging system provides:
+
+- **🎯 Intelligent Event Classification**: Distinguishes between UserEvents and standard events
+- **📊 Log Level Optimization**: First occurrence gets detailed logging, subsequent ones use trace level
+- **🔍 Helpful Registration Hints**: Provides exact code to register missing UserEvents
+- **🚀 Performance Optimized**: Thread-safe deduplication with minimal overhead
+
+Example smart log output:info: Unknown UserEvent 'DoQueueStatus' (key: userdoqueuestatus) - consider registering a custom class
+info: To register this UserEvent, create a class inheriting from UserEvent and call: ManagerEventBuilder.RegisterUserEventClass(typeof(YourCustomEvent))
 ## 📊 Performance Comparison
 
-| Approach | Connection Overhead | Memory Usage | Event Support | Best For |
-|----------|-------------------|--------------|---------------|----------|
-| **AsteriskManagerProvider** | Per operation | Low | ❌ No | Scripts, one-time ops |
-| **AsteriskManagerServiceBase** | None (persistent) | Medium | ✅ Real-time | Multi-server services |
+| Approach | Connection Overhead | Memory Usage | Event Support | Smart Logging | Best For |
+|----------|-------------------|--------------|---------------|---------------|----------|
+| **AsteriskManagerProvider** | Per operation | Low | ❌ No | ✅ Yes | Scripts, one-time ops |
+| **AsteriskManagerService** | None (persistent) | Medium | ✅ Real-time | ✅ Yes | Multi-server services |
 
-## 🏗️ Architecture Overview
-┌─────────────────────────────────────────────────────────────────┐
+## 🏗️ Architecture Overview┌─────────────────────────────────────────────────────────────────┐
 │                    Your Application                             │
 ├─────────────────┬───────────────────────┬─────────────────────┤
 │ Quick Operations│                       │ Multi-Provider Svc   │
@@ -202,6 +248,9 @@ await service.StartAsync();
 │        ManagerConnection                │        Multiple     │
 │        (Single connection)              │        Providers    │
 ├─────────────────┴───────────────────────┴─────────────────────┤
+│              Smart Event Processing                            │
+│           (ManagerEventBuilder with Smart Logging)            │
+├───────────────────────────────────────────────────────────────┤
 │                 Connection Management                          │
 │              (Reconnection, Auth, Events)                     │
 ├───────────────────────────────────────────────────────────────┤
@@ -211,13 +260,13 @@ await service.StartAsync();
 
 - 📖 **[Multi-Provider Architecture Guide](docs/README-MultiProviderArchitecture.md)** - Detailed architecture documentation
 - 📖 **[Quick Operations Guide](docs/README-QuickOperations.md)** - AsteriskManagerProvider examples
+- 📖 **[Smart Logging Guide](SMART_LOGGING.md)** - 🆕 NEW: Smart event logging and diagnostics
 - 📖 **[API Reference](docs/README-API.md)** - Complete API documentation
 - 📖 **[Migration Guide](docs/README-Migration.md)** - Upgrading from previous versions
 
 ## 🔧 Configuration
 
-### Basic Provider Configuration
-{
+### Basic Provider Configuration{
   "AMIProviderOptions": {
     "Address": "asterisk.example.com",
     "Port": 5038,
@@ -228,8 +277,7 @@ await service.StartAsync();
     "SocketEncoding": "ASCII"
   }
 }
-### Multi-Provider Configuration
-{
+### Multi-Provider Configuration{
   "Providers": [
     {
       "Enabled": true,
@@ -248,6 +296,13 @@ await service.StartAsync();
     }
   ]
 }
+### 🆕 Smart Logging Configuration{
+  "Logging": {
+    "LogLevel": {
+      "Sufficit.Asterisk.Manager.ManagerEventBuilder": "Information"
+    }
+  }
+}
 ## 🎯 Common Use Cases
 
 ### Scripts and Automation// Perfect for scheduled tasks, admin scripts
@@ -258,11 +313,11 @@ using var connection = await provider.ConnectAsync(keepAlive: false);
 await connection.SendActionAsync(new ReloadAction());
 await connection.SendActionAsync(new CoreShowChannelsAction());
 ### Call Center Applications// Perfect for real-time monitoring
-public class CallCenterService : AsteriskManagerServiceBase
+public class CallCenterService : AsteriskManagerService
 {
-    protected override AsteriskManagerEvents GetEventHandler()
+    protected override IManagerEventSubscriptions GetEventHandler()
     {
-        var events = new AsteriskManagerEvents();
+        var events = new ManagerEventSubscriptions();
         events.On<QueueMemberStatusEvent>(UpdateAgentStatus);
         events.On<QueueCallerJoinEvent>(OnCustomerJoin);
         return events;
@@ -283,6 +338,22 @@ public async Task ConfigureExtension(string extension, string name)
     
     await connection.SendActionAsync(new ReloadAction { Module = "app_queue.so" });
 }
+## 🆕 **Recent Improvements**
+
+### Version 1.2.0+ Features:
+- ✅ **Smart Event Logging** - Intelligent unknown event detection with deduplication
+- ✅ **Enhanced Diagnostics** - Runtime event registration monitoring  
+- ✅ **Performance Optimizations** - Cached constructors and minimal allocations
+- ✅ **UserEvent Support** - Runtime registration of custom user events
+- ✅ **Thread-Safe Operations** - All event building operations are thread-safe
+- ✅ **Memory Optimizations** - Reduced allocations in event processing pipeline
+
+### Migration Notes:
+- All existing code continues to work without changes
+- New diagnostic methods are available for monitoring
+- Smart logging is enabled by default
+- UserEvent registration is now possible at runtime
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
@@ -296,7 +367,7 @@ This project is licensed under the [MIT License](LICENSE).
 - 📖 **Documentation**: [docs/](docs/)
 - 🐛 **Issues**: [GitHub Issues](https://github.com/sufficit/sufficit-asterisk-manager/issues)  
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/sufficit/sufficit-asterisk-manager/discussions)
-- 📧 **Email**: support@sufficit.com
+- 📧 **Email**: support@sufficit.com.br
 
 ---
 

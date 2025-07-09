@@ -28,7 +28,7 @@ namespace Sufficit.Asterisk.Manager.Connection
         public char[] VarDelimiters { get; internal set; }
 
         /// <summary>
-        ///     Indicates if it its the first attemp to login, used for auto discover the <see cref="VarDelimeter"/> if necessary
+        ///     Indicates if it its the first attemp to login, used for auto discover the <see cref="VarDelimiters"/> if necessary
         /// </summary>
         private bool _isFirstLogin = true;
 
@@ -52,8 +52,28 @@ namespace Sufficit.Asterisk.Manager.Connection
         public bool IsAuthenticated => _authenticator.IsAuthenticated;
         public Encoding SocketEncoding => _parameters.SocketEncoding;
 
-        private ManagerEventSubscriptions _events;
-        public IManagerEventSubscriptions Events => _events;
+        /// <summary>
+        /// Internal event manager - always exists and is owned by this connection.
+        /// Disposed automatically when the connection is disposed.
+        /// </summary>
+        private readonly ManagerEventSubscriptions _internalEvents;
+        
+        /// <summary>
+        /// External event manager - optional, provided via Use() method.
+        /// Never disposed by this connection, managed externally.
+        /// </summary>
+        private IManagerEventSubscriptions? _externalEvents;
+        
+        /// <summary>
+        /// Currently active event manager (either internal or external).
+        /// </summary>
+        private IManagerEventSubscriptions _activeEvents;
+
+        /// <summary>
+        /// Gets the currently active event management system for this connection.
+        /// This will be either the internal events (default) or external events (if set via Use()).
+        /// </summary>
+        public IManagerEventSubscriptions Events => _activeEvents;
 
         #endregion
 
@@ -76,20 +96,26 @@ namespace Sufficit.Asterisk.Manager.Connection
             // 2. Inicie a tarefa do consumidor em segundo plano
             _packetConsumerTask = Task.Run(ProcessPacketQueueAsync);
 
-            _events = new ManagerEventSubscriptions();
+            // 3. Create internal event manager - always owned by this connection
+            _internalEvents = new ManagerEventSubscriptions();
+            
+            // 4. Start with internal events as active (external can be set via Use())
+            _activeEvents = _internalEvents;
 
             // updating default delimeters
             VarDelimiters = this.GetDelimiters();
 
-            // 3. Create the component that handles the login/logoff logic
+            // 5. Create the component that handles the login/logoff logic
             _authenticator = new ConnectionAuthenticator (parameters, this, this);
             _authenticator.OnAuthenticated = OnAuthenticated;
 
-            // 4. Create the component that sends pings to keep the connection alive
+            // 6. Create the component that sends pings to keep the connection alive
             _livenessMonitor = new ConnectionLivenessMonitor (parameters, this, this);
 
             _reconnector = new ConnectionReconnector(parameters, this, _authenticator, _livenessMonitor);
             _reconnector.Start(); // Ativa o listener de desconexão
+            
+            _logger.LogDebug("ManagerConnection created with internal event manager");
         }
 
         #endregion
@@ -139,13 +165,15 @@ namespace Sufficit.Asterisk.Manager.Connection
                 {
                     if (packet.ContainsKey("event"))
                     {
-                        // Check if the events system is available and not disposed
-                        var currentEvents = _events;
+                        // Use the currently active events system (internal or external)
+                        var currentEvents = _activeEvents;
                         if (currentEvents != null && !currentEvents.IsDisposed)
                         {
-                            var eventObject = currentEvents.Build(packet);
+                            // Build event using ManagerEventBuilder static class
+                            var eventObject = ManagerEventBuilder.Build(packet);
                             if (eventObject != null)
                             {
+                                // Dispatch to the active events system
                                 currentEvents.Dispatch(this, eventObject.Event);
                             }
                         }
@@ -153,8 +181,8 @@ namespace Sufficit.Asterisk.Manager.Connection
                         {
                             // Log only at debug level during normal operation
                             // This can happen briefly during reconnection
-                            _logger.LogDebug("Event packet received but events system is disposed or null. Event type: {EventType}", 
-                                packet.ContainsKey("event") ? packet["event"] : "Unknown");
+                            var eventType = packet.TryGetValue("event", out var eventValue) ? eventValue : "Unknown";
+                            _logger.LogDebug("Event packet received but active events system is disposed or null. Event type: {type}", eventType);
                         }
                     }
                     else if (packet.ContainsKey("response"))
@@ -261,7 +289,15 @@ namespace Sufficit.Asterisk.Manager.Connection
             if (userEventClass == null) throw new ArgumentNullException(nameof(userEventClass));
             if (!typeof(ManagerEvent).IsAssignableFrom(userEventClass) && !typeof(IManagerEvent).IsAssignableFrom(userEventClass))
                 throw new ArgumentException("Type must derive from ManagerEvent or implement IManagerEvent.", nameof(userEventClass));
-            _events.RegisterUserEventClass(userEventClass);
+            
+            // Register in ManagerEventBuilder (global registration)
+            ManagerEventBuilder.RegisterUserEventClass(userEventClass);
+            
+            // Also register in active events if it's different and supports registration
+            if (_activeEvents != _internalEvents)
+            {
+                _activeEvents.RegisterUserEventClass(userEventClass);
+            }
         }
 
         public void Use(IManagerEventSubscriptions events, bool disposable = false)
@@ -269,30 +305,75 @@ namespace Sufficit.Asterisk.Manager.Connection
             if (events == null) throw new ArgumentNullException(nameof(events));
             
             // If the new event manager is the same instance, no need to replace
-            if (ReferenceEquals(_events, events))
+            if (ReferenceEquals(_activeEvents, events))
             {
                 _logger.LogDebug("Event manager is already the same instance, no replacement needed");
                 return;
             }
 
-            var oldEvents = _events;
+            var previousEvents = _activeEvents;
+            var wasUsingExternal = _externalEvents != null;
             
-            // Assign the new event system
-            _events = events as ManagerEventSubscriptions ?? throw new ArgumentException("events must be of type ManagerEventSubscriptions", nameof(events));
+            // Always switch to the new events system
+            _activeEvents = events;
+            _externalEvents = events;
             
-            _logger.LogDebug("Event manager replaced during reconnection");
+            _logger.LogDebug("Event manager replaced - now using external events system");
             
-            // Only dispose the old event manager if specified and it's different from the new one
-            if (disposable && oldEvents != null && !ReferenceEquals(oldEvents, _events))
+            // Only dispose the previous external events if:
+            // 1. disposable is true
+            // 2. We were using external events (not internal)
+            // 3. The previous events is different from the new one
+            // 4. The previous events is not the internal events (never dispose internal via this method)
+            if (disposable && wasUsingExternal && 
+                previousEvents != null && 
+                !ReferenceEquals(previousEvents, events) &&
+                !ReferenceEquals(previousEvents, _internalEvents))
             {
                 try
                 {
-                    oldEvents.Dispose();
-                    _logger.LogDebug("Old event manager disposed after replacement");
+                    previousEvents.Dispose();
+                    _logger.LogDebug("Previous external event manager disposed after replacement");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Error disposing old event manager during replacement");
+                    _logger.LogWarning(ex, "Error disposing previous external event manager during replacement");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Switches back to using the internal event manager.
+        /// Optionally disposes the current external event manager.
+        /// </summary>
+        /// <param name="disposeExternal">Whether to dispose the current external event manager</param>
+        public void UseInternal(bool disposeExternal = false)
+        {
+            if (_activeEvents == _internalEvents)
+            {
+                _logger.LogDebug("Already using internal event manager");
+                return;
+            }
+
+            var externalToDispose = disposeExternal ? _externalEvents : null;
+            
+            // Switch back to internal
+            _activeEvents = _internalEvents;
+            _externalEvents = null;
+            
+            _logger.LogDebug("Switched back to internal event manager");
+
+            // Dispose external if requested
+            if (externalToDispose != null)
+            {
+                try
+                {
+                    externalToDispose.Dispose();
+                    _logger.LogDebug("External event manager disposed");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error disposing external event manager");
                 }
             }
         }
@@ -334,10 +415,24 @@ namespace Sufficit.Asterisk.Manager.Connection
             // o que já estava na fila. Adicione um timeout para não bloquear para sempre.
             _packetConsumerTask.Wait(TimeSpan.FromSeconds(2));
 
-            // 4. Dispose of the events aggregator system.
-            _events?.Dispose();
+            // 4. Always dispose the internal events system (we own it)
+            try
+            {
+                _internalEvents?.Dispose();
+                _logger.LogDebug("Internal event manager disposed");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error disposing internal event manager");
+            }
 
-            // 5. Call the base Dispose method. This will trigger the cleanup in ActionDispatcher 
+            // 5. Never dispose external events system (we don't own it)
+            if (_externalEvents != null)
+            {
+                _logger.LogDebug("External event manager not disposed (not owned by connection)");
+            }
+
+            // 6. Call the base Dispose method. This will trigger the cleanup in ActionDispatcher 
             //    (failing pending handlers) and then AMISocketManager (closing the socket).
             base.Dispose();
 
