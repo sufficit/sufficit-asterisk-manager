@@ -62,6 +62,7 @@ namespace Sufficit.Asterisk.Manager.Connection
         private AISingleSocketHandler? _socket; // Changed to the concrete, active type
         private CancellationTokenSource? _managerCts;
         private readonly object _connectionLock = new object();
+        private volatile bool _disconnectEventTriggered = false; // Prevent multiple disconnect events
 
 #if !NETSTANDARD
         [MemberNotNullWhen(true, nameof(_socket))]
@@ -170,6 +171,9 @@ namespace Sufficit.Asterisk.Manager.Connection
                 _socket = new AISingleSocketHandler(_logger, options, connectedSocket, _managerCts.Token);
                 _socket.OnDisconnected += OnSocketDisconnected;
 
+                // Reset the disconnect event flag for the new connection
+                _disconnectEventTriggered = false;
+
                 _ = ProcessSocketQueueAsync(_managerCts.Token);
 
                 _logger.LogDebug("successfully connected to {Address}:{Port}. waiting for protocol identification ...", _parameters.Address, _parameters.Port);
@@ -267,10 +271,58 @@ namespace Sufficit.Asterisk.Manager.Connection
 
         private void OnSocketDisconnected(object? sender, AGISocketReason e)
         {
+            _logger.LogInformation("OnSocketDisconnected triggered: {Reason}", e);
+            
             if (_socket != null)
                 _socket.OnDisconnected -= OnSocketDisconnected;
 
-            Disconnect("Socket disconnected: " + e.ToString());
+            // Determine if this disconnection should be considered permanent
+            // based on the socket reason and current configuration
+            bool isPermanent = DetermineIfDisconnectionIsPermanent(e);
+
+            _logger.LogInformation("Calling Disconnect with reason: {Reason}, isPermanent: {IsPermanent}", e, isPermanent);
+            Disconnect("Socket disconnected: " + e.ToString(), isPermanent);
+        }
+
+        /// <summary>
+        /// Determines whether a socket disconnection should be considered permanent
+        /// based on the disconnection reason and connection parameters.
+        /// </summary>
+        /// <param name="reason">The reason for the socket disconnection</param>
+        /// <returns>True if the disconnection should be considered permanent (no reconnection), false otherwise</returns>
+        private bool DetermineIfDisconnectionIsPermanent(AGISocketReason reason)
+        {
+            _logger.LogInformation("DetermineIfDisconnectionIsPermanent: reason={Reason}, KeepAlive={KeepAlive}", reason, _parameters.KeepAlive);
+            
+            // If KeepAlive is false, all disconnections are permanent
+            if (!_parameters.KeepAlive)
+            {
+                _logger.LogInformation("KeepAlive is false, marking disconnection as permanent");
+                return true;
+            }
+
+            // Analyze the disconnection reason
+            switch (reason)
+            {
+                // These are considered intentional/permanent disconnections
+                case AGISocketReason.DISPOSED:
+                case AGISocketReason.CANCELLED:
+                    _logger.LogInformation("Disconnection reason {Reason} is intentional, marking as permanent", reason);
+                    return true;
+
+                // These are considered temporary network issues that should trigger reconnection
+                case AGISocketReason.ABORTED:
+                case AGISocketReason.RESETED:
+                case AGISocketReason.NOTRECEIVING:
+                    _logger.LogInformation("Disconnection reason {Reason} is temporary, allowing reconnection", reason);
+                    return false;
+
+                // Unknown reasons - default to allowing reconnection if KeepAlive is enabled
+                case AGISocketReason.UNKNOWN:
+                default:
+                    _logger.LogWarning("Unknown socket disconnection reason: {Reason}. Allowing reconnection since KeepAlive is enabled.", reason);
+                    return false;
+            }
         }
 
         /// <summary>
@@ -292,26 +344,58 @@ namespace Sufficit.Asterisk.Manager.Connection
 
         public virtual void Disconnect(string cause, bool isPermanent = false)
         {
+            _logger.LogInformation("Disconnect method called: cause='{Cause}', isPermanent={IsPermanent}", cause, isPermanent);
+            
+            bool wasConnected = false;
+            
             lock (_connectionLock)
             {
-                if (!IsConnected && !IsDisposed) return;
-
-                if (cause.Contains("disposed"))
-                    _logger.LogTrace("disconnecting from Asterisk server. cause: {cause}", cause);
+                wasConnected = IsConnected || _socket != null;
+                
+                if (!IsConnected && !IsDisposed && _socket == null) 
+                {
+                    _logger.LogDebug("Disconnect: already disconnected and cleaned up, but will still trigger event");
+                }
                 else
-                    _logger.LogInformation("disconnecting from Asterisk server. cause: {cause}", cause);
+                {
+                    if (cause.Contains("disposed"))
+                        _logger.LogTrace("disconnecting from Asterisk server. cause: {cause}", cause);
+                    else
+                        _logger.LogInformation("disconnecting from Asterisk server. cause: {cause}", cause);
 
-                // Dispose the socket handler, which will stop the background tasks.
-                _socket?.Dispose();
-                _socket = null;
+                    // Dispose the socket handler, which will stop the background tasks.
+                    _socket?.Dispose();
+                    _socket = null;
+                }
             }
 
-            var args = new DisconnectEventArgs() { Cause = cause, IsPermanent = isPermanent };
-            OnDisconnectedTrigger(args);
+            // IMPORTANT: Always trigger the OnDisconnected event, even if socket was already disconnected
+            // The reconnection system depends on this event being fired
+            if (!_disconnectEventTriggered) // Prevent duplicate events
+            {
+                _logger.LogDebug("Triggering OnDisconnected event with cause: {Cause}, isPermanent: {IsPermanent}, wasConnected: {WasConnected}", cause, isPermanent, wasConnected);
+                var args = new DisconnectEventArgs() { Cause = cause, IsPermanent = isPermanent };
+                OnDisconnectedTrigger(args);
+                _disconnectEventTriggered = true; // Set the flag to prevent duplicates
+            }
         }
 
         protected virtual void OnDisconnectedTrigger(DisconnectEventArgs args)
-            => OnDisconnected?.Invoke(this, args);
+        {
+            // Prevent multiple disconnect events for the same disconnection
+            if (_disconnectEventTriggered)
+            {
+                _logger.LogDebug("OnDisconnectedTrigger: disconnect event already triggered, skipping duplicate");
+                return;
+            }
+            
+            _disconnectEventTriggered = true;
+            
+            _logger.LogInformation("OnDisconnectedTrigger: firing event with {EventHandlerCount} subscribers", 
+                OnDisconnected?.GetInvocationList()?.Length ?? 0);
+            OnDisconnected?.Invoke(this, args);
+            _logger.LogDebug("OnDisconnectedTrigger: event fired");
+        }
 
         public async Task WriteAsync (string data, CancellationToken cancellationToken)
         {

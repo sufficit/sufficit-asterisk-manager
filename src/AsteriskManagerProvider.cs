@@ -1,7 +1,5 @@
-﻿using AsterNET.Manager;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Sufficit.Asterisk.Manager.Configuration;
 using Sufficit.Asterisk.Manager.Connection;
 using System;
 using System.Text.Json.Serialization;
@@ -9,8 +7,47 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Sufficit.Asterisk.Manager
-{
-    public class AsteriskManagerProvider : IAMIProvider, IDisposable, IAsyncDisposable
+{   
+    /// <summary>
+    /// AsteriskManagerProvider is designed for short-term, single-action connections to Asterisk servers.
+    /// This provider is optimized for quick operations where you connect, execute actions, and disconnect.
+    /// </summary>
+    /// <remarks>
+    /// AsteriskManagerProvider Purpose:
+    /// - Quick, temporary connections for specific operations
+    /// - Execute one or more actions and then disconnect
+    /// - Manual connection lifecycle management
+    /// - Suitable for scripts, automation, and one-time operations
+    /// - Minimal resource usage for short-lived tasks
+    /// 
+    /// Use AsteriskManagerProvider when you need:
+    /// - Execute specific AMI actions (Originate, Hangup, Command, etc.)
+    /// - One-time or periodic operations (scripts, scheduled tasks)
+    /// - Manual control over connection lifecycle
+    /// - Minimal overhead for simple operations
+    /// - No need for event monitoring
+    /// 
+    /// Do NOT use AsteriskManagerProvider for:
+    /// - Long-running background services (use AMIService instead)
+    /// - Continuous event monitoring
+    /// - Real-time telephony state tracking
+    /// - Applications that need persistent connections
+    /// 
+    /// Usage Pattern:
+    /// ```csharp
+    /// // Connect, execute action, disconnect
+    /// using var provider = new AsteriskManagerProvider(options, logger);
+    /// using var connection = await provider.ConnectAsync(keepAlive: false);
+    /// var response = await connection.SendActionAsync(myAction);
+    /// // Automatically disconnects when disposed
+    /// ```
+    /// 
+    /// Configuration Notes:
+    /// - Set keepAlive=false for temporary connections
+    /// - Set keepAlive=true only if you need the connection to persist beyond the immediate operation
+    /// - Uses the same AMIProviderOptions as AMIService but with different usage patterns
+    /// </remarks>
+    public class AsteriskManagerProvider : IAsteriskManagerProvider
     {
         public AMIProviderOptions Options { get; internal set; }
 
@@ -19,7 +56,7 @@ namespace Sufficit.Asterisk.Manager
         public bool Enabled { get; private set; }
 
         [JsonIgnore]
-        public ManagerConnection? Connection => _connection;
+        public IManagerConnection? Connection => _connection;
 
         private ManagerConnection? _connection;
         private readonly ILogger _logger;
@@ -33,13 +70,13 @@ namespace Sufficit.Asterisk.Manager
             Options = options.Value;
         }
 
-        public Task<ManagerConnection> ConnectAsync(CancellationToken cancellationToken = default)
+        public Task<IManagerConnection> ConnectAsync(CancellationToken cancellationToken = default)
             => ConnectAsync(null, cancellationToken);
 
         /// <summary>
         /// Asynchronously connects the provider to the Asterisk server and returns the valid connection object.
         /// </summary>
-        public async Task<ManagerConnection> ConnectAsync(bool? keepalive = null, CancellationToken cancellationToken = default)
+        public async Task<IManagerConnection> ConnectAsync(bool? keepalive = null, CancellationToken cancellationToken = default)
         {
             await _stateChangeSemaphore.WaitAsync(cancellationToken);
             try
@@ -88,10 +125,10 @@ namespace Sufficit.Asterisk.Manager
             }
         }
 
-        public ValueTask<ManagerConnection> GetValidConnection(CancellationToken cancellationToken)
+        public ValueTask<IManagerConnection> GetValidConnection(CancellationToken cancellationToken = default)
             => InternalConnect(false, cancellationToken);
 
-        private async ValueTask<ManagerConnection> InternalConnect(bool keepAlive = true, CancellationToken cancellationToken = default)
+        private async ValueTask<IManagerConnection> InternalConnect(bool keepAlive = true, CancellationToken cancellationToken = default)
         {
             lock (_lockConnection)
             {

@@ -15,31 +15,39 @@ namespace Sufficit.Asterisk.Manager
     {
         private static readonly ILogger _logger = ManagerLogger.CreateLogger(typeof(ManagerConnectionExtensions));
 
-        public static async Task Refresh (this ManagerConnection source, CancellationToken cancellationToken)
-        {            
+        public static async Task Refresh (this IManagerConnection source, CancellationToken cancellationToken)
+        {
+            // Cast to ManagerConnection to access SendActionAsync method
+            if (source is not ManagerConnection connection)
+                throw new InvalidOperationException("Connection must be a ManagerConnection instance");
+                
             {
                 var action = new SIPPeersAction();
-                var response = await source.SendActionAsync(action, cancellationToken);
+                var response = await connection.SendActionAsync(action, cancellationToken);
                 if (!response.IsSuccess())
                     throw new Exception($"error at executing {nameof(SIPPeersAction).ToLower()}");
             }
             {
                 var action = new StatusAction();
-                var response = await source.SendActionAsync(action, cancellationToken); 
+                var response = await connection.SendActionAsync(action, cancellationToken); 
                 if (!response.IsSuccess())
                     throw new Exception($"error at executing {nameof(StatusAction).ToLower()}");
             }            
         }
 
-        public static async Task GetQueueStatus (this ManagerConnection source, string queue, string member, CancellationToken cancellationToken)
+        public static async Task GetQueueStatus (this IManagerConnection source, string queue, string member, CancellationToken cancellationToken)
         {
+            // Cast to ManagerConnection to access SendActionAsync method
+            if (source is not ManagerConnection connection)
+                throw new InvalidOperationException("Connection must be a ManagerConnection instance");
+                
             var action = new QueueStatusAction
             {
                 Queue = queue,
                 Member = member
             };
 
-            var response = await source.SendActionAsync(action, cancellationToken);
+            var response = await connection.SendActionAsync(action, cancellationToken);
             if (!response.IsSuccess())
                 throw new Exception($"error at executing {nameof(QueueStatusAction).ToLower()}");
         }

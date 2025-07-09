@@ -25,7 +25,7 @@ namespace Sufficit.Asterisk.Manager.Connection
         /// <summary>
         /// Gets the array of characters used as delimiters for variable parsing.
         /// </summary>
-        public char[] VarDelimeters { get; internal set; }
+        public char[] VarDelimiters { get; internal set; }
 
         /// <summary>
         ///     Indicates if it its the first attemp to login, used for auto discover the <see cref="VarDelimeter"/> if necessary
@@ -52,7 +52,8 @@ namespace Sufficit.Asterisk.Manager.Connection
         public bool IsAuthenticated => _authenticator.IsAuthenticated;
         public Encoding SocketEncoding => _parameters.SocketEncoding;
 
-        public AsteriskManagerEvents Events { get; internal set; }
+        private AsteriskManagerSubscriptions _events;
+        public IAsteriskManagerSubscriptions Events => _events;
 
         #endregion
 
@@ -75,10 +76,10 @@ namespace Sufficit.Asterisk.Manager.Connection
             // 2. Inicie a tarefa do consumidor em segundo plano
             _packetConsumerTask = Task.Run(ProcessPacketQueueAsync);
 
-            Events = new AsteriskManagerEvents();
+            _events = new AsteriskManagerSubscriptions();
 
             // updating default delimeters
-            VarDelimeters = this.GetDelimiters();
+            VarDelimiters = this.GetDelimiters();
 
             // 3. Create the component that handles the login/logoff logic
             _authenticator = new ConnectionAuthenticator (parameters, this, this);
@@ -138,10 +139,10 @@ namespace Sufficit.Asterisk.Manager.Connection
                 {
                     if (packet.ContainsKey("event"))
                     {
-                        var eventObject = Events.Build(packet);
+                        var eventObject = _events.Build(packet);
                         if (eventObject != null)
                         {
-                            Events.Dispatch(this, eventObject.Event);
+                            _events.Dispatch(this, eventObject.Event);
                         }
                     }
                     else if (packet.ContainsKey("response"))
@@ -194,7 +195,7 @@ namespace Sufficit.Asterisk.Manager.Connection
                     AsteriskVersion = Asterisk.AsteriskVersion.ASTERISK_Older;
 
                 // updating delimeters
-                VarDelimeters = this.GetDelimiters();
+                VarDelimiters = this.GetDelimiters();
             }
         }
 
@@ -240,15 +241,15 @@ namespace Sufficit.Asterisk.Manager.Connection
             if (userEventClass == null) throw new ArgumentNullException(nameof(userEventClass));
             if (!typeof(ManagerEvent).IsAssignableFrom(userEventClass) && !typeof(IManagerEvent).IsAssignableFrom(userEventClass))
                 throw new ArgumentException("Type must derive from ManagerEvent or implement IManagerEvent.", nameof(userEventClass));
-            Events.RegisterUserEventClass(userEventClass);
+            _events.RegisterUserEventClass(userEventClass);
         }
 
-        public void Use(AsteriskManagerEvents events, bool disposable = false)
+        public void Use(IAsteriskManagerSubscriptions events, bool disposable = false)
         {
-            Events?.Dispose();
+            _events?.Dispose();
 
             // Atribui o novo sistema de eventos.
-            Events = events ?? throw new ArgumentNullException(nameof(events));
+            _events = events as AsteriskManagerSubscriptions ?? throw new ArgumentException("events must be of type AsteriskManagerSubscriptions", nameof(events));
         }
 
         #endregion
@@ -289,7 +290,7 @@ namespace Sufficit.Asterisk.Manager.Connection
             _packetConsumerTask.Wait(TimeSpan.FromSeconds(2));
 
             // 4. Dispose of the events aggregator system.
-            (this.Events as IDisposable)?.Dispose();
+            _events?.Dispose();
 
             // 5. Call the base Dispose method. This will trigger the cleanup in ActionDispatcher 
             //    (failing pending handlers) and then AMISocketManager (closing the socket).

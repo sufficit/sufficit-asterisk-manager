@@ -32,7 +32,7 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Sufficit Pacote NUGET">
-	<Name>Sufficit.Asterisk.Manager</Name>
+	<n>Sufficit.Asterisk.Manager</n>
     <PackageId>Sufficit.Asterisk.Manager</PackageId>
     <PackageDescription></PackageDescription>
     <RepositoryUrl>https://github.com/sufficit/sufficit-asterisk-manager</RepositoryUrl>
@@ -62,7 +62,6 @@
     <Compile Include="Connection\ConnectionAuthenticator.cs" />
     <Compile Include="Connection\ConnectionLivenessMonitor.cs" />
     <Compile Include="Connection\ConnectionReconnector.cs" />
-    <Compile Include="Connection\DisconnectEventArgs.cs" />
     <Compile Include="Connection\IActionDispatcher.cs" />
     <Compile Include="Connection\IAMISocketManager.cs" />
     <Compile Include="Connection\ManagerConnection.cs" />
@@ -73,8 +72,8 @@
     <Content Include="NotTested\Documentation\Asterisk-1.6.2.24\AMI Commands.txt" />
     <Content Include="NotTested\Documentation\Asterisk-1.6.2.24\AMI Events.txt" />
   </ItemGroup>
-
-	<ItemGroup>
+	
+	<ItemGroup Label="Sufficit Pack Items">
 		<None Include="../icon.png">
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
@@ -87,6 +86,9 @@
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</None>
+	</ItemGroup>
+
+	<ItemGroup Label="Sufficit IA Configurations">
 		<None Include="../.github/copilot-instructions.md">
 			<Pack>False</Pack>
 			<PackagePath></PackagePath>
@@ -100,6 +102,8 @@
 	<ItemGroup Condition=" '$(TargetFramework)' == 'net7.0' ">
 		<PackageReference Include="Microsoft.AspNetCore.Http.Connections.Common" Version="[*,9.0.0)" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="[*,9.0.0)" />
+		<PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="[*,9.0.0)" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="[*,9.0.0)" />
 		<PackageReference Include="Microsoft.Extensions.Logging" Version="[*,9.0.0)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[*,9.0.0)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="[*,9.0.0)" />
@@ -111,6 +115,8 @@
 	<ItemGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' Or '$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net9.0' ">
 		<PackageReference Include="Microsoft.AspNetCore.Http.Connections.Common" Version="[*,10.0.0)" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="[*,10.0.0)" />
+		<PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="[*,10.0.0)" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="[*,10.0.0)" />
 		<PackageReference Include="Microsoft.Extensions.Logging" Version="[*,10.0.0)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[*,10.0.0)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="[*,10.0.0)" />
@@ -120,10 +126,12 @@
 	</ItemGroup>
 		
 	<ItemGroup Label="Sufficit Dependencies on Packing" Condition=" '$(Configuration)' == 'Packing' ">
+		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.*" />
 		<PackageReference Include="Sufficit.Asterisk.Shared" Version="1.*" />
 	</ItemGroup>
 
-	<ItemGroup>
+	<ItemGroup Condition=" '$(Configuration)' != 'Packing' ">
+	  <ProjectReference Include="..\..\sufficit-asterisk-core\src\Sufficit.Asterisk.Core.csproj" />
 	  <ProjectReference Include="..\..\sufficit-asterisk-shared\src\Sufficit.Asterisk.Shared.csproj" />
 	</ItemGroup>
 

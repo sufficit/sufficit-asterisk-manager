@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Sufficit.Asterisk.Manager.Connection;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,6 +28,8 @@ namespace Sufficit.Asterisk.Manager.Connection
         /// intended for direct access or modification by external code.</remarks>
         private long _disconnectionCounter = 0;
 
+        private bool _disposed = false;
+
         public ConnectionReconnector(
             ReconnectorParameters parameters,
             IAMISocketManager lifecycleManager,
@@ -46,11 +47,37 @@ namespace Sufficit.Asterisk.Manager.Connection
         /// </summary>
         public void Start()
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(ConnectionReconnector));
+
             _lifecycleManager.OnDisconnected += HandleDisconnected;
+            _logger.LogInformation("ConnectionReconnector started and subscribed to OnDisconnected event. KeepAlive: {KeepAlive}, ReconnectRetryMax: {ReconnectRetryMax}", 
+                _parameters.KeepAlive, _parameters.ReconnectRetryMax);
+        }
+
+        /// <summary>
+        /// Stops listening to events to prevent memory leaks.
+        /// </summary>
+        public void Stop()
+        {
+            if (_disposed)
+                return; // Silently return if already disposed
+
+            _lifecycleManager.OnDisconnected -= HandleDisconnected;
+            _logger.LogDebug("ConnectionReconnector stopped.");
         }
 
         private void HandleDisconnected(object? sender, DisconnectEventArgs e)
         {
+            if (_disposed)
+            {
+                _logger.LogDebug("HandleDisconnected called on disposed ConnectionReconnector, ignoring");
+                return;
+            }
+
+            _logger.LogWarning("ConnectionReconnector.HandleDisconnected called - sender: {Sender}, cause: {Cause}, permanent: {IsPermanent}", 
+                sender?.GetType().Name ?? "null", e.Cause, e.IsPermanent);
+            
             var totalFailures = Interlocked.Increment(ref _disconnectionCounter);
             _logger.LogWarning("Connection lost! Failure count for this instance: {TotalFailures}. Cause: {Cause}. Permanent: {IsPermanent}", totalFailures, e.Cause, e.IsPermanent);
 
@@ -65,17 +92,27 @@ namespace Sufficit.Asterisk.Manager.Connection
                 return;
             }
 
+            _logger.LogInformation("Reconnection will be attempted. KeepAlive: {KeepAlive}, IsPermanent: {IsPermanent}", _parameters.KeepAlive, e.IsPermanent);
+
             lock (_reconnectLock)
             {
+                if (_disposed)
+                {
+                    _logger.LogDebug("ConnectionReconnector disposed during reconnection attempt, aborting");
+                    return;
+                }
+
                 if (_isReconnecting)
                 {
                     _logger.LogInformation("Reconnection attempt is already in progress.");
                     return;
                 }
                 _isReconnecting = true;
+                _logger.LogInformation("Starting new reconnection task...");
             }
 
             // Inicia a tentativa de reconexão em uma nova tarefa para não bloquear o chamador do evento
+            _logger.LogInformation("About to start TryReconnectAsync...");
             _ = TryReconnectAsync();
         }
 
@@ -83,12 +120,19 @@ namespace Sufficit.Asterisk.Manager.Connection
         {
             try
             {
+                // Check if disposed before starting
+                if (_disposed)
+                {
+                    _logger.LogDebug("TryReconnectAsync aborted: ConnectionReconnector is disposed");
+                    return;
+                }
+
                 // NEW: Check if we should retry indefinitely
                 if (_parameters.ReconnectRetryMax == 0)
                 {
                     // Handle the infinite retry case
                     int attempt = 1;
-                    while (true)
+                    while (!_disposed) // Check disposal in loop condition
                     {
                         // Determine the delay interval based on the attempt number
                         int delayMs = (attempt <= _parameters.ReconnectRetryFast)
@@ -98,6 +142,13 @@ namespace Sufficit.Asterisk.Manager.Connection
                         _logger.LogInformation("Reconnect attempt {Attempt} (infinite retries). Waiting for {Delay}ms.", attempt, delayMs);
 
                         await Task.Delay(delayMs);
+
+                        // Check if disposed after delay
+                        if (_disposed)
+                        {
+                            _logger.LogDebug("TryReconnectAsync aborted during delay: ConnectionReconnector is disposed");
+                            return;
+                        }
 
                         try
                         {
@@ -133,12 +184,19 @@ namespace Sufficit.Asterisk.Manager.Connection
 
                     int totalMaxRetries = (int)Math.Min(totalMaxRetriesLong, int.MaxValue);
 
-                    for (int attempt = 1; attempt <= totalMaxRetries; attempt++)
+                    for (int attempt = 1; attempt <= totalMaxRetries && !_disposed; attempt++)
                     {
                         int delayMs = (attempt <= _parameters.ReconnectRetryFast) ? _parameters.ReconnectIntervalFast : _parameters.ReconnectIntervalMax;
                         _logger.LogInformation("Reconnect attempt {Attempt}/{MaxAttempts}. Waiting for {Delay}ms.", attempt, totalMaxRetries, delayMs);
 
                         await Task.Delay(delayMs);
+
+                        // Check if disposed after delay
+                        if (_disposed)
+                        {
+                            _logger.LogDebug("TryReconnectAsync aborted during finite retry: ConnectionReconnector is disposed");
+                            return;
+                        }
 
                         try
                         {
@@ -176,7 +234,29 @@ namespace Sufficit.Asterisk.Manager.Connection
         /// </summary>
         public void Dispose()
         {
-            _lifecycleManager.OnDisconnected -= HandleDisconnected;
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Protected virtual dispose method for proper disposal pattern implementation.
+        /// </summary>
+        /// <param name="disposing">True if disposing managed resources, false if called from finalizer</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Dispose managed resources
+                    _logger.LogDebug("Disposing ConnectionReconnector managed resources");
+                    Stop();
+                }
+
+                // Dispose unmanaged resources (none in this class currently)
+                
+                _disposed = true;
+            }
         }
     }
 }

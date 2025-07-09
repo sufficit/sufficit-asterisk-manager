@@ -1,5 +1,4 @@
-﻿using Sufficit.Asterisk.Manager.Configuration;
-using Sufficit.Asterisk.Manager.Connection;
+﻿using Sufficit.Asterisk.Manager.Connection;
 using System;
 using System.Collections.Generic;
 using System.Text;

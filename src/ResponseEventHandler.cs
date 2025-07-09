@@ -4,7 +4,6 @@ using Sufficit.Asterisk.Manager.Action; // Para ManagerAction, ManagerActionEven
 using Sufficit.Asterisk.Manager.Events; // Para IManagerEvent, IResponseEvent
 using Sufficit.Asterisk.Manager.Response; // MUITO IMPORTANTE: Para ManagerResponse, ManagerError
 using Microsoft.Extensions.Logging;
-using AsterNET.Manager.Action;
 using Sufficit.Asterisk.Manager.Events.Abstracts;
 
 namespace Sufficit.Asterisk.Manager // Ou o namespace onde esta classe realmente reside
