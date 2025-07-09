@@ -52,8 +52,8 @@ namespace Sufficit.Asterisk.Manager.Connection
         public bool IsAuthenticated => _authenticator.IsAuthenticated;
         public Encoding SocketEncoding => _parameters.SocketEncoding;
 
-        private AsteriskEventManager _events;
-        public IAsteriskEventManager Events => _events;
+        private ManagerEventSubscriptions _events;
+        public IManagerEventSubscriptions Events => _events;
 
         #endregion
 
@@ -76,7 +76,7 @@ namespace Sufficit.Asterisk.Manager.Connection
             // 2. Inicie a tarefa do consumidor em segundo plano
             _packetConsumerTask = Task.Run(ProcessPacketQueueAsync);
 
-            _events = new AsteriskEventManager();
+            _events = new ManagerEventSubscriptions();
 
             // updating default delimeters
             VarDelimiters = this.GetDelimiters();
@@ -264,7 +264,7 @@ namespace Sufficit.Asterisk.Manager.Connection
             _events.RegisterUserEventClass(userEventClass);
         }
 
-        public void Use(IAsteriskEventManager events, bool disposable = false)
+        public void Use(IManagerEventSubscriptions events, bool disposable = false)
         {
             if (events == null) throw new ArgumentNullException(nameof(events));
             
@@ -278,7 +278,7 @@ namespace Sufficit.Asterisk.Manager.Connection
             var oldEvents = _events;
             
             // Assign the new event system
-            _events = events as AsteriskEventManager ?? throw new ArgumentException("events must be of type AsteriskEventManager", nameof(events));
+            _events = events as ManagerEventSubscriptions ?? throw new ArgumentException("events must be of type ManagerEventSubscriptions", nameof(events));
             
             _logger.LogDebug("Event manager replaced during reconnection");
             

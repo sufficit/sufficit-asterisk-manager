@@ -52,7 +52,7 @@ namespace Sufficit.Asterisk.Manager.Services
         /// Event handler for Asterisk manager events.
         /// Must be implemented by derived classes.
         /// </summary>
-        public abstract IAsteriskEventManager Events { get; }
+        public abstract IManagerEventSubscriptions Events { get; }
 
         /// <summary>
         /// Last time an event was received from any provider.
@@ -91,7 +91,7 @@ namespace Sufficit.Asterisk.Manager.Services
         /// Derived classes must implement this to define how events are handled.
         /// </summary>
         /// <returns>Configured AsteriskEventManager instance</returns>
-        protected abstract IAsteriskEventManager GetEventHandler();
+        protected abstract IManagerEventSubscriptions GetEventHandler();
 
         /// <summary>
         /// Abstract method to get provider configurations.

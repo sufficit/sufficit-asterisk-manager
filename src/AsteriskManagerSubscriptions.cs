@@ -14,16 +14,16 @@ using Sufficit.Asterisk.Manager.Events;
 namespace Sufficit.Asterisk.Manager
 {
     /// <summary>
-    /// Central event management system for Asterisk Manager Interface events.
+    /// Central event subscription management system for Asterisk Manager Interface (AMI) events.
     /// Coordinates multiple event subscriptions and handles event dispatching using a modern,
-    /// high-performance, non-blocking producer-consumer pattern.
+    /// high-performance, non-blocking producer-consumer pattern specifically for AMI events.
     /// </summary>
     /// <remarks>Designed to be used on multiple instances of <see cref="ManagerConnection"/></remarks>
-    public class AsteriskEventManager : IAsteriskEventManager, IAsyncDisposable
+    public class ManagerEventSubscriptions : IManagerEventSubscriptions, IAsyncDisposable
     {
         #region Static Section (Original Logic)
 
-        private static readonly ILogger _logger = ManagerLogger.CreateLogger<AsteriskEventManager>();
+        private static readonly ILogger _logger = ManagerLogger.CreateLogger<ManagerEventSubscriptions>();
         private static readonly object _lockDiscovered = new object();
         private static IEnumerable<Type>? _discoveredTypes;
 
@@ -132,7 +132,7 @@ namespace Sufficit.Asterisk.Manager
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly Task _consumerTask;
 
-        public AsteriskEventManager()
+        public ManagerEventSubscriptions()
         {
             _handlers = new ConcurrentDictionary<string, ManagerInvokable>();
             _eventChannel = Channel.CreateUnbounded<Tuple<object?, IManagerEvent>>(new UnboundedChannelOptions { SingleReader = true });
@@ -152,12 +152,12 @@ namespace Sufficit.Asterisk.Manager
 
             var invokable = _handlers.GetOrAdd(eventKey, key =>
             {
-                var newHandler = new AsteriskEventSubscription<T>(key);
+                var newHandler = new ManagerEventSubscription<T>(key);
                 newHandler.OnChanged += OnHandlerChanged;
                 return newHandler;
             });
 
-            if (invokable is AsteriskEventSubscription<T> handler)
+            if (invokable is ManagerEventSubscription<T> handler)
                 return new DisposableHandler<T>(handler, action);
 
             throw new InvalidOperationException($"Handler type mismatch for event key: {eventKey}.");
@@ -335,7 +335,7 @@ namespace Sufficit.Asterisk.Manager
         {
             if (IsDisposed) return;
             
-            _logger.LogInformation("Starting disposal of AsteriskEventManager");
+            _logger.LogInformation("Starting disposal of ManagerEventSubscriptions");
             
             // Mark as disposed early to prevent new events from being dispatched
             IsDisposed = true;
@@ -412,11 +412,11 @@ namespace Sufficit.Asterisk.Manager
                 // 6. Dispose cancellation token source
                 _cancellationTokenSource?.Dispose();
 
-                _logger.LogInformation("AsteriskEventManager disposal completed successfully");
+                _logger.LogInformation("ManagerEventSubscriptions disposal completed successfully");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during AsteriskEventManager disposal");
+                _logger.LogError(ex, "Error during ManagerEventSubscriptions disposal");
                 throw;
             }
         }
@@ -424,11 +424,11 @@ namespace Sufficit.Asterisk.Manager
         /// <summary>
         /// Finalizer to ensure resources are cleaned up if Dispose is not called
         /// </summary>
-        ~AsteriskEventManager()
+        ~ManagerEventSubscriptions()
         {
             if (!IsDisposed)
             {
-                _logger.LogWarning("AsteriskEventManager was not properly disposed. Consider using 'using' statement or calling Dispose/DisposeAsync explicitly.");
+                _logger.LogWarning("ManagerEventSubscriptions was not properly disposed. Consider using 'using' statement or calling Dispose/DisposeAsync explicitly.");
                 
                 // For finalizer, we can only do synchronous cleanup
                 try

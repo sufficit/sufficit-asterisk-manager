@@ -6,14 +6,14 @@ using System.Text;
 namespace Sufficit.Asterisk.Manager
 {
     /// <summary>
-    /// Classe auxiliar que implementa IDisposable para cancelar a inscrição de um evento facilmente.
+    /// Classe auxiliar que implementa IDisposable para cancelar a inscrição de um evento AMI facilmente.
     /// </summary>
     public class DisposableHandler<T> : IDisposable where T : IManagerEvent
     {
-        private readonly AsteriskEventSubscription<T> _control;
+        private readonly ManagerEventSubscription<T> _control;
         private readonly EventHandler<T> _action;
 
-        public DisposableHandler(AsteriskEventSubscription<T> control, EventHandler<T> action)
+        public DisposableHandler(ManagerEventSubscription<T> control, EventHandler<T> action)
         {
             _control = control;
             _action = action;
