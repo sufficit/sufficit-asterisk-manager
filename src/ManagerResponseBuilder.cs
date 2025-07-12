@@ -1,5 +1,5 @@
-﻿using AsterNET.Helpers;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Sufficit.Asterisk.Helpers;
 using Sufficit.Asterisk.Manager.Events.Abstracts;
 using Sufficit.Asterisk.Manager.Response;
 using Sufficit.Json;
@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Sufficit.Asterisk.Manager

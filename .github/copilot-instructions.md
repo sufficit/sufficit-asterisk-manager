@@ -24,6 +24,8 @@
   - Related (references, thanks, etc.)
 
 ## Project Specific Guidelines
+* Pay attention to Action correct names, it is case sensitive;
+* Pay attention to Properties required or optional;
 
 ### Asterisk Documentation
 * Sufficit.Asterisk.Shared -> asterisk-documentation-resume.md

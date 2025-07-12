@@ -1,4 +1,4 @@
-﻿using AsterNET.Helpers;
+﻿using Sufficit.Asterisk.Helpers;
 using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Events.Abstracts;
 using Sufficit.Asterisk.Manager.Response;

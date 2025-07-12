@@ -1,5 +1,5 @@
-﻿using AsterNET.Helpers;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Sufficit.Asterisk.Helpers;
 using Sufficit.Asterisk.Manager.Action;
 using System;
 using System.Collections;
@@ -116,7 +116,6 @@ namespace Sufficit.Asterisk.Manager
                 }
                 else if (value is IDictionary dictionaryValue)
                 {
-                    // Assuming Helper.JoinVariables is from Sufficit.Asterisk.Manager.Helpers.Helper
                     valueAsString = JoinVariables(dictionaryValue, Common.LINE_SEPARATOR, ": ");
                     if (valueAsString.Length == 0)
                         continue;
@@ -135,7 +134,6 @@ namespace Sufficit.Asterisk.Manager
 
             if (action.Variable != null && action.Variable.Count > 0) // ManagerAction.Variable is NameValueCollection?
             {
-                // Assuming Helper.JoinVariables is from Sufficit.Asterisk.Manager.Helpers.Helper
                 string nvcValues = JoinVariables(action.Variable, new string(varDelimiter), "=");
                 if (!string.IsNullOrEmpty(nvcValues))
                 {
