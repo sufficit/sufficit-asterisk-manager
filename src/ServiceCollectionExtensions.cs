@@ -18,7 +18,7 @@ namespace Sufficit.Asterisk.Manager
             if (factory is not null)
             {
                 ManagerLogger.LoggerFactory = factory;
-                AsterNETLogger.LoggerFactory = factory;
+                AsteriskLogger.LoggerFactory = factory;
             }
 
             return services;
