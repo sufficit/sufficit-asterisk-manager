@@ -1,6 +1,6 @@
 using Sufficit.Asterisk.Manager.Action;
 
-namespace AsterNET.Manager.Action
+namespace Sufficit.Asterisk.Manager.Action
 {
     /// <summary>
     ///     The AbsoluteTimeoutAction sets the absolute maximum amount of time permitted for a call on a given channel.<br />

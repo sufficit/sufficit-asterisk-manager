@@ -2,7 +2,7 @@
 using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Events;
 
-namespace AsterNET.Manager.Action
+namespace Sufficit.Asterisk.Manager.Action
 {
     /// <summary>
     ///     Lists data about all active conferences. ConfbridgeListRooms will follow as separate events,

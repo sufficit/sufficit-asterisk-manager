@@ -1,5 +1,4 @@
-﻿using AsterNET.Manager.Action;
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using System.Threading;
 using Sufficit.Asterisk.Manager.Response;

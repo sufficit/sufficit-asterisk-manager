@@ -1,38 +1,32 @@
 # Copilot Instructions
-<!-- Version: 2.0 -->
+<!-- Version: 3.5 -->
 
+## Common Guidelines
+* whenever you find a newer Copilot Instructions file, merge the Common Guidelines content and adjust the version;
 * code comments should always be in English;
 * response to user queries should be in IDE current language;
 * avoid to change code that was not related to the query;
 * when agent has to change a method and it change the async status, the agent should update the method callers too;
 * for extensions methods use always "source" as default parameter name
 * use one file for each class
-* for #regions tags: no blank lines between consecutive regions, but always add one blank line after #region opening and one blank line before #endregion closing
+* for #region tags: no blank lines between consecutive regions, but always add one blank line after region opening and one blank line before region closing
+* do not try to build if you just changed the code comments or documentation files;
 
-## #Region Formatting Rules
+## Documentation Guidelines
+* for github repository readme.md files, use the following structure:
+  - Title
+  - About (description, etc.)
+  - Features
+  - Installation
+  - Usage (always on separated readme file, one for each case; testing, etc.)
+  - License
+  - Support (development@sufficit.com.br, etc.)
+  - Related (references, thanks, etc.)
 
-### Correct Format:#region Properties
+## Project Specific Guidelines
 
-    public string Name { get; set; }
-    public int Age { get; set; }
-
-#endregion
-#region Methods
-
-    public void DoSomething()
-    {
-        // implementation
-    }
-
-#endregion
-### Incorrect Format:#region Properties
-    public string Name { get; set; }
-    public int Age { get; set; }
-#endregion
-
-#region Methods
-    public void DoSomething()
-    {
-        // implementation
-    }
-#endregion
+### Asterisk Documentation
+* Sufficit.Asterisk.Shared -> asterisk-documentation-resume.md
+* https://docs.asterisk.org
+* https://github.com/asterisk/asterisk
+* https://github.com/asterisk/documentation

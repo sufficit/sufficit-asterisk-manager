@@ -1,5 +1,4 @@
-﻿using AsterNET.Manager.Action;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Connection;
 using Sufficit.Asterisk.Manager.Response;

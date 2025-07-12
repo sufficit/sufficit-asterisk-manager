@@ -1,8 +1,7 @@
 using System;
-using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Events;
 
-namespace AsterNET.Manager.Action
+namespace Sufficit.Asterisk.Manager.Action
 {
     /// <summary>
     ///     Show SIP registrations (text format).

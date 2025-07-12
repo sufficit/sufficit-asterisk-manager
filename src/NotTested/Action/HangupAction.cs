@@ -1,6 +1,4 @@
-using Sufficit.Asterisk.Manager.Action;
-
-namespace AsterNET.Manager.Action
+namespace Sufficit.Asterisk.Manager.Action
 {
     /// <summary>
     ///     The HangupAction causes the pbx to hang up a given channel.

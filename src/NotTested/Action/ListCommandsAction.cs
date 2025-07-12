@@ -1,4 +1,4 @@
-﻿namespace AsterNET.Manager.Action
+﻿namespace Sufficit.Asterisk.Manager.Action
 {
     internal class ListCommandsAction
     {
