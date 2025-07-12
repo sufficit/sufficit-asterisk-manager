@@ -1,5 +1,5 @@
-﻿using AsterNET.Manager.Action;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Sufficit.Asterisk.Manager.Action;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

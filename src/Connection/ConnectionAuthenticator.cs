@@ -145,7 +145,7 @@ namespace Sufficit.Asterisk.Manager.Connection
         public async Task LogOff(CancellationToken cancellationToken)
         {
             if (!IsAuthenticated) return;
-            await _actionDispatcher.SendActionAsync<ManagerResponseEvent>(new LogOffAction(), cancellationToken);
+            await _actionDispatcher.SendActionAsync<ManagerResponseEvent>(new LogoffAction(), cancellationToken);
             _lifecycleManager.Disconnect("User requested logoff", isPermanent: true);
         }
 
