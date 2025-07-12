@@ -74,7 +74,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// <summary>
         /// Gets the name of this action.
         /// </summary>
-        /// <value>Always returns "SIPShowRegistry"</value>
+        /// <value>Always returns "SIPshowregistry"</value>
         public override string Action => "SIPshowregistry";
 
         /// <summary>
