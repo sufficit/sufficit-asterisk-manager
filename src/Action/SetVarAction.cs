@@ -311,7 +311,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// - Use prefixes for application-specific variables
         /// - Coordinate naming with team conventions
         /// </remarks>
-        public string? Variable { get; set; }
+        public new string? Variable { get; set; }
 
         /// <summary>
         /// Gets or sets the value to assign to the variable.
