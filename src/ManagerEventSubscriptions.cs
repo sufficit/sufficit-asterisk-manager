@@ -314,25 +314,14 @@ namespace Sufficit.Asterisk.Manager
                 {
                     try
                     {
-                        // Give a reasonable timeout for the consumer to finish
-                        using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
-                        {
-                            var completedTask = await Task.WhenAny(_consumerTask, Task.Delay(Timeout.Infinite, timeoutCts.Token)).ConfigureAwait(false);
-                            if (completedTask == _consumerTask)
-                            {
-                                // Consumer task completed normally, await it to get any exceptions
-                                await _consumerTask.ConfigureAwait(false);
-                            }
-                            else
-                            {
-                                _logger.LogWarning("Consumer task did not complete within timeout during disposal");
-                            }
-                        }
+                        // Wait for the consumer task to finish processing any remaining events.
+                        // It should complete as the channel is marked as complete and the cancellation token is triggered.
+                        await _consumerTask.ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
                     {
-                        // Expected when cancellation token is triggered or timeout occurs
-                        _logger.LogDebug("Consumer task completed via cancellation or timeout");
+                        // Expected when cancellation token is triggered
+                        _logger.LogDebug("Consumer task completed via cancellation.");
                     }
                     catch (Exception ex)
                     {
