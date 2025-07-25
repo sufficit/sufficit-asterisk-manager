@@ -1,11 +1,9 @@
-﻿using AsterNET.Manager.Action;
 using Microsoft.Extensions.Logging;
 using Sufficit.Asterisk.IO;
 using Sufficit.Asterisk.Manager.Action;
 using Sufficit.Asterisk.Manager.Events.Abstracts;
 using Sufficit.Asterisk.Manager.Response;
 using System;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 

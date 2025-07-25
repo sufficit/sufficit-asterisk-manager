@@ -1,8 +1,7 @@
-﻿using System;
-using Sufficit.Asterisk.Manager.Action;
+using System;
 using Sufficit.Asterisk.Manager.Events;
 
-namespace AsterNET.Manager.Action
+namespace Sufficit.Asterisk.Manager.Action
 {
     /// <summary>
     /// The QueueSummaryAction requests summary information about all queues.

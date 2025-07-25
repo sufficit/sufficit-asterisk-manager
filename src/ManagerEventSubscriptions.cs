@@ -43,6 +43,9 @@ namespace Sufficit.Asterisk.Manager
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly Task _consumerTask;
 
+        // Cache to avoid reflection on every dispatch. Maps event type to a list of handlers.
+        private readonly ConcurrentDictionary<Type, ICollection<ManagerInvokable>> _dispatchCache;
+
         #endregion
 
         #region Constructor
@@ -54,12 +57,21 @@ namespace Sufficit.Asterisk.Manager
         public ManagerEventSubscriptions()
         {
             _handlers = new ConcurrentDictionary<string, ManagerInvokable>();
+            _dispatchCache = new ConcurrentDictionary<Type, ICollection<ManagerInvokable>>();
             _eventChannel = Channel.CreateUnbounded<Tuple<object?, IManagerEvent>>(new UnboundedChannelOptions { SingleReader = true });
             _cancellationTokenSource = new CancellationTokenSource();
 
-            _consumerTask = ConsumeEventsAsync(_cancellationTokenSource.Token);
+            // Start the consumer on a dedicated thread to prevent thread pool starvation
+            // from interfering with the consumer loop itself. This is crucial if handlers
+            // also queue work on the thread pool.
+            _consumerTask = Task.Factory.StartNew(
+                () => ConsumeEventsAsync(_cancellationTokenSource.Token),
+                _cancellationTokenSource.Token,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default
+            ).Unwrap();
 
-            _logger.LogDebug("ManagerEventSubscriptions created with standard disposal behavior");
+            _logger.LogDebug("ManagerEventSubscriptions created with a long-running consumer task.");
         }
 
         #endregion
@@ -80,6 +92,7 @@ namespace Sufficit.Asterisk.Manager
             {
                 var newHandler = new ManagerEventSubscription<T>(key);
                 newHandler.OnChanged += OnHandlerChanged;
+                _dispatchCache.Clear(); // Invalidate cache on new handler registration
                 return newHandler;
             });
 
@@ -97,7 +110,13 @@ namespace Sufficit.Asterisk.Manager
         private void OnHandlerChanged(object? sender, EventArgs e)
         {
             if (sender is ManagerInvokable handler && handler.Count == 0)
-                _handlers.TryRemove(handler.Key, out _);
+            {
+                if (_handlers.TryRemove(handler.Key, out _))
+                {
+                    // Clear the dispatch cache so it can be rebuilt on the next event.
+                    _dispatchCache.Clear();
+                }
+            }
         }
 
         #endregion
@@ -163,22 +182,20 @@ namespace Sufficit.Asterisk.Manager
             _logger.LogInformation("Event consumer task started.");
             try
             {
+                // ReadAllAsync will throw OperationCanceledException when the token is cancelled.
                 await foreach (var (sender, evt) in _eventChannel.Reader.ReadAllAsync(cancellationToken))
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                        break;
-
                     try 
                     { 
                         DispatchInternal(sender, evt); 
                     }
                     catch (Exception ex) 
                     { 
-                        _logger.LogError(ex, "Error during internal dispatch of event {EventType}.", evt.GetType().Name); 
+                        _logger.LogError(ex, "Error queueing internal dispatch of event {EventType}.", evt.GetType().Name); 
                     }
                 }
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException)
             {
                 _logger.LogInformation("Event consumer task was canceled gracefully.");
             }
@@ -194,39 +211,62 @@ namespace Sufficit.Asterisk.Manager
 
         /// <summary>
         /// Internal method that actually dispatches events to registered handlers.
-        /// Handles both specific and abstract event type matching.
+        /// The entire dispatch logic for an event is queued on the thread pool to prevent
+        /// the consumer loop from blocking.
         /// </summary>
         /// <param name="sender">The source of the event</param>
         /// <param name="e">The event to dispatch</param>
         private void DispatchInternal(object? sender, IManagerEvent e)
         {
-            string eventKey = ManagerEventBuilder.GetEventKey(e);
-            bool wasHandled = false;
-
-            // Try specific handler first
-            if (_handlers.TryGetValue(eventKey, out var handler))
+            // Queue the entire dispatch logic to the thread pool.
+            _ = Task.Run(() =>
             {
-                handler.Invoke(sender, e);
-                wasHandled = true;
-            }
+                // Re-check for disposal, as this runs asynchronously.
+                if (IsDisposed) return;
 
-            // Try abstract/base type handlers
-            var eventType = e.GetType();
-            var abstractHandlers = _handlers.Values.Where(h => 
-                h.GetType().GetGenericArguments()[0].IsAssignableFrom(eventType) && 
-                h.Key != eventKey);
-                
-            foreach (var abstractHandler in abstractHandlers)
-            {
-                abstractHandler.Invoke(sender, e);
-                wasHandled = true;
-            }
+                var eventType = e.GetType();
+                bool wasHandled = false;
 
-            // Fire unhandled event if no specific handlers and FireAllEvents is enabled
-            if (!wasHandled && FireAllEvents)
-            {
-                UnhandledEvent?.Invoke(sender, e);
-            }
+                // Get the list of handlers for this event type from the cache.
+                // If not in the cache, build it.
+                var applicableHandlers = _dispatchCache.GetOrAdd(eventType, (type) =>
+                {
+                    // A handler is applicable if the event type can be assigned to the handler's generic type.
+                    // This covers specific, base, and interface handlers in a single, clean check.
+                    return _handlers.Values.Where(h =>
+                        h.GetType().GetGenericArguments()[0].IsAssignableFrom(type)
+                    ).ToList();
+                });
+
+                if (applicableHandlers.Count > 0)
+                {
+                    wasHandled = true;
+                    foreach (var handler in applicableHandlers)
+                    {
+                        try
+                        {
+                            handler.Invoke(sender, e);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error in event handler for {EventType} (Handler Key: {HandlerKey})", eventType.Name, handler.Key);
+                        }
+                    }
+                }
+
+                // Fire unhandled event if no specific handlers and FireAllEvents is enabled
+                if (!wasHandled && FireAllEvents)
+                {
+                    try
+                    {
+                        UnhandledEvent?.Invoke(sender, e);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error in unhandled event handler for {EventType}", e.GetType().Name);
+                    }
+                }
+            });
         }
 
         #endregion
@@ -284,52 +324,52 @@ namespace Sufficit.Asterisk.Manager
         {
             if (IsDisposed) return;
             
-            _logger.LogInformation("Starting disposal of ManagerEventSubscriptions");
-            
-            // Mark as disposed early to prevent new events from being dispatched
+            _logger.LogInformation("Starting disposal of ManagerEventSubscriptions.");
             IsDisposed = true;
 
             try
             {
-                // 1. Signal cancellation to stop accepting new events
+                // 1. Signal cancellation to stop the consumer task immediately.
+                // This is the most direct way to stop the `await foreach` loop.
                 if (!_cancellationTokenSource.IsCancellationRequested)
                 {
                     _cancellationTokenSource.Cancel();
                 }
 
-                // 2. Complete the channel writer to stop accepting new events
-                // Use a try-catch as the writer might already be completed
-                try
-                {
-                    _eventChannel.Writer.Complete();
-                }
-                catch (InvalidOperationException)
-                {
-                    // Writer was already completed, this is fine
-                    _logger.LogDebug("Channel writer was already completed during disposal");
-                }
+                // 2. Complete the channel writer. This is a secondary measure to ensure
+                // the loop terminates even if cancellation is slow.
+                _eventChannel.Writer.TryComplete();
 
-                // 3. Wait for the consumer task to finish processing remaining events
+                // 3. Wait for the consumer task to finish with a timeout.
                 if (_consumerTask != null && !_consumerTask.IsCompleted)
                 {
-                    try
+                    var completedTask = await Task.WhenAny(_consumerTask, Task.Delay(TimeSpan.FromSeconds(2))).ConfigureAwait(false);
+                    if (completedTask != _consumerTask)
                     {
-                        // Wait for the consumer task to finish processing any remaining events.
-                        // It should complete as the channel is marked as complete and the cancellation token is triggered.
+                        _logger.LogWarning("Consumer task did not terminate within 2 seconds of cancellation. It may be stuck.");
+                    }
+                    else
+                    {
+                        // Await the task to propagate any exceptions (like the expected OperationCanceledException).
                         await _consumerTask.ConfigureAwait(false);
                     }
-                    catch (OperationCanceledException)
-                    {
-                        // Expected when cancellation token is triggered
-                        _logger.LogDebug("Consumer task completed via cancellation.");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error waiting for consumer task to complete");
-                    }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // This is the expected outcome of a successful cancellation.
+                _logger.LogDebug("Consumer task was cancelled as expected during disposal.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An unexpected exception occurred while shutting down the consumer task. Task status: {Status}", _consumerTask?.Status);
+            }
+            finally
+            {
+                // Cleanup should happen regardless of whether the task completed gracefully.
+                _logger.LogDebug("Proceeding with final resource cleanup.");
 
-                // 4. Clear event handlers and unsubscribe from change notifications
+                // Clear event handlers and unsubscribe from change notifications
                 foreach (var handler in _handlers.Values)
                 {
                     try
@@ -342,19 +382,15 @@ namespace Sufficit.Asterisk.Manager
                     }
                 }
 
-                // 5. Clear all collections
+                // Clear all collections
                 _handlers.Clear();
                 UnhandledEvent = null;
+                _dispatchCache.Clear();
 
-                // 6. Dispose cancellation token source
+                // Dispose cancellation token source
                 _cancellationTokenSource?.Dispose();
 
                 _logger.LogInformation("ManagerEventSubscriptions disposal completed successfully");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during ManagerEventSubscriptions disposal");
-                throw;
             }
         }
 
@@ -365,21 +401,9 @@ namespace Sufficit.Asterisk.Manager
         {
             if (!IsDisposed)
             {
-                _logger.LogWarning("ManagerEventSubscriptions was not properly disposed. Consider using 'using' statement or calling Dispose/DisposeAsync explicitly.");
-                
-                // For finalizer, we can only do synchronous cleanup
-                try
-                {
-                    IsDisposed = true;
-                    _cancellationTokenSource?.Cancel();
-                    _cancellationTokenSource?.Dispose();
-                    _handlers.Clear();
-                    UnhandledEvent = null;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error during finalization");
-                }
+                _logger.LogWarning("ManagerEventSubscriptions was not properly disposed. This can lead to resource leaks. Ensure DisposeAsync() is called.");
+                // In a finalizer, we should not call other managed objects' methods (like Dispose).
+                // The garbage collector will handle them. We just log a warning.
             }
         }
 

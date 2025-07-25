@@ -1,4 +1,3 @@
-using AsterNET.Manager;
 using System;
 
 namespace Sufficit.Asterisk.Manager

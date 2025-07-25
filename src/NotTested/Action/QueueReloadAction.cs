@@ -1,7 +1,5 @@
-﻿using Sufficit.Asterisk.Manager.Action;
-
-namespace AsterNET.Manager.Action
-{
+namespace Sufficit.Asterisk.Manager.Action 
+{ 
     public class QueueReloadAction : ManagerAction
     {
         /// <summary>

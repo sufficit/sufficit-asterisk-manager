@@ -1,6 +1,4 @@
-using Sufficit.Asterisk.Manager.Action;
-
-namespace AsterNET.Manager.Action
+namespace Sufficit.Asterisk.Manager.Action
 {
     /// <summary>
     ///     The SetCDRUserFieldAction causes the user field of the call detail record for the given channel to be changed.

@@ -1,6 +1,4 @@
-﻿using Sufficit.Asterisk.Manager.Action;
-
-namespace AsterNET.Manager.Action
+namespace Sufficit.Asterisk.Manager.Action
 {
     /// <summary>
     /// Dynamically add filters for the current manager session
