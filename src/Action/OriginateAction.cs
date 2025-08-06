@@ -80,12 +80,6 @@ namespace Sufficit.Asterisk.Manager.Action
         public override string Action => "Originate";
 
         /// <summary>
-        /// Variable: concat all items here ... 
-        /// Can have multiple keys with the same name
-        /// </summary>
-        public new NameValueCollection? Variable { get; set; }
-
-        /// <summary>
         /// Gets or sets the account code to use for the originated call.
         /// The account code is included in the call detail record generated for this call and will be used for billing.
         /// </summary>
