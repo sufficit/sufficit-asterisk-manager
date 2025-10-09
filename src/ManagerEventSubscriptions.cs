@@ -36,8 +36,6 @@ namespace Sufficit.Asterisk.Manager
 
         #region Instance Fields
 
-        public bool FireAllEvents { get; set; } = false;
-
         private readonly ConcurrentDictionary<string, ManagerInvokable> _handlers;
         private readonly Channel<Tuple<object?, IManagerEvent>> _eventChannel;
         private readonly CancellationTokenSource _cancellationTokenSource;
@@ -254,12 +252,12 @@ namespace Sufficit.Asterisk.Manager
                     }
                 }
 
-                // Fire unhandled event if no specific handlers and FireAllEvents is enabled
-                if (!wasHandled && FireAllEvents)
+                // Fire unhandled event if no specific handlers and UnhandledEvent is set
+                if (!wasHandled && UnhandledEvent != null)
                 {
                     try
                     {
-                        UnhandledEvent?.Invoke(sender, e);
+                        UnhandledEvent.Invoke(sender, e);
                     }
                     catch (Exception ex)
                     {

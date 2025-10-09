@@ -105,40 +105,8 @@ namespace Sufficit.Asterisk.Manager.Connection
                 throw new AuthenticationFailedException($"authentication failed for user: {action.Username}", response.Exception);
         }
 
-        /* OLD METHOD
-         
-        private async Task PerformAuthenticationAsync(CancellationToken cancellationToken)
-        {
-            var action = new LoginAction(_parameters.Username, "plaintext", _parameters.Password, "on");
-            if (_parameters.UseMD5Authentication)
-            {
-                action.AuthType = "MD5";
-                var challengeAction = new ChallengeAction(action.AuthType);
-                var challengeResp = await SendActionAsync<ChallengeResponse>(challengeAction, cancellationToken);
-                if (string.IsNullOrEmpty(challengeResp.Challenge))
-                    throw new AuthenticationFailedException("challenge for MD5 login was null or empty.");
-
-                var md = AsterNET.Util.MD5Support.GetInstance();
-                md.Update(_parameters.SocketEncoding.GetBytes(challengeResp.Challenge));
-                md.Update(_parameters.SocketEncoding.GetBytes(action.Key ?? ""));
-                action.Key = Helper.ToHexString(md.DigestData);
-            }
-
-            _logger.LogWarning("sending a ({type}) login action for user: {user}", action.AuthType, action.Username);
-            var response = await SendActionAsync(action, cancellationToken);
-            if (response.Exception != null)
-                throw new AuthenticationFailedException($"authentication failed for user: {action.Username}", response.Exception);
-
-            _logger.LogInformation("Authentication successful for user '{LoginUsername}'", _parameters.Username);
-            IsAuthenticated = true;
-        }
-          
-        */
-
         private void OnDisconnected(object? sender, EventArgs e)
-        {
-            IsAuthenticated = false;
-        }
+            => IsAuthenticated = false;        
 
         public async Task LogOff(CancellationToken cancellationToken)
         {

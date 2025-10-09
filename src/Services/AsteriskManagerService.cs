@@ -71,7 +71,7 @@ namespace Sufficit.Asterisk.Manager.Services
         /// - Integration with external systems
         /// - Call monitoring and analytics
         /// </remarks>
-        public virtual event EventHandler<IManagerEvent>? OnManagerEvent;
+        public event EventHandler<IManagerEvent>? OnManagerEvent;
 
         protected AsteriskManagerService(ILoggerFactory loggerFactory)
         {

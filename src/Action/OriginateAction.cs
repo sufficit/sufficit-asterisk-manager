@@ -307,6 +307,28 @@ namespace Sufficit.Asterisk.Manager.Action
         public int Timeout { get; set; }
 
         /// <summary>
+        /// Set to 'true' to force call bridge on early media
+        /// </summary>
+        public bool? EarlyMedia { get; set; }
+
+        /// <summary>
+        /// Comma-separated list of codecs to use for this call
+        /// </summary>
+        public string? Codecs { get; set; }
+
+        /// <summary>
+        /// Channel UniqueId to be set on the second local channel
+        /// </summary>
+        /// <remarks>Not Tested</remarks>
+        public string? OtherChannelId { get; set; }
+
+        /// <summary>
+        /// PreDialGoSub Context,Extension,Priority to set options/headers needed before start the outgoing extension
+        /// </summary>
+        /// <remarks>Asterisk 18+ (Not Tested)</remarks>
+        public string? PreDialGoSub { get; set; }
+
+        /// <summary>
         /// Returns the event type that indicates completion of the Originate action.
         /// </summary>
         /// <returns>The Type of OriginateResponseEvent</returns>

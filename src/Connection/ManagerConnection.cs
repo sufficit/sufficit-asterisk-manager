@@ -63,11 +63,11 @@ namespace Sufficit.Asterisk.Manager.Connection
         /// Never disposed by this connection, managed externally.
         /// </summary>
         private IManagerEventSubscriptions? _externalEvents;
-        
+
         /// <summary>
         /// Currently active event manager (either internal or external).
         /// </summary>
-        private IManagerEventSubscriptions _activeEvents;
+        private IManagerEventSubscriptions _activeEvents => _externalEvents ?? _internalEvents;
 
         /// <summary>
         /// Gets the currently active event management system for this connection.
@@ -99,9 +99,6 @@ namespace Sufficit.Asterisk.Manager.Connection
             // 3. Create internal event manager - always owned by this connection
             _internalEvents = new ManagerEventSubscriptions();
             
-            // 4. Start with internal events as active (external can be set via Use())
-            _activeEvents = _internalEvents;
-
             // updating default delimeters
             VarDelimiters = this.GetDelimiters();
 
@@ -300,10 +297,26 @@ namespace Sufficit.Asterisk.Manager.Connection
             }
         }
 
+        /// <inheritdoc cref="IManagerConnection.OnEventHandlersChanged"/>
+        public event EventHandler<EventHandlersChangedEventArgs>? OnEventHandlersChanged;
+
+        /// <summary>
+        /// Raises the <see cref="OnEventHandlersChanged"/> event.
+        /// </summary>
+        protected virtual void EventHandlersChanged(IManagerEventSubscriptions current, IManagerEventSubscriptions? previous)
+        {
+            var args = new EventHandlersChangedEventArgs
+            {
+                Current = current,
+                Previous = previous
+            };
+            OnEventHandlersChanged?.Invoke(this, args);
+        }
+
         public void Use(IManagerEventSubscriptions events, bool disposable = false)
         {
             if (events == null) throw new ArgumentNullException(nameof(events));
-            
+
             // If the new event manager is the same instance, no need to replace
             if (ReferenceEquals(_activeEvents, events))
             {
@@ -313,20 +326,20 @@ namespace Sufficit.Asterisk.Manager.Connection
 
             var previousEvents = _activeEvents;
             var wasUsingExternal = _externalEvents != null;
-            
+
             // Always switch to the new events system
-            _activeEvents = events;
             _externalEvents = events;
-            
+            EventHandlersChanged(events, previousEvents);
+
             _logger.LogDebug("Event manager replaced - now using external events system");
-            
+
             // Only dispose the previous external events if:
             // 1. disposable is true
             // 2. We were using external events (not internal)
             // 3. The previous events is different from the new one
             // 4. The previous events is not the internal events (never dispose internal via this method)
-            if (disposable && wasUsingExternal && 
-                previousEvents != null && 
+            if (disposable && wasUsingExternal &&
+                previousEvents != null &&
                 !ReferenceEquals(previousEvents, events) &&
                 !ReferenceEquals(previousEvents, _internalEvents))
             {
@@ -358,7 +371,6 @@ namespace Sufficit.Asterisk.Manager.Connection
             var externalToDispose = disposeExternal ? _externalEvents : null;
             
             // Switch back to internal
-            _activeEvents = _internalEvents;
             _externalEvents = null;
             
             _logger.LogDebug("Switched back to internal event manager");

@@ -138,16 +138,11 @@ namespace Sufficit.Asterisk.Manager
                     Options.ReconnectIntervalMax = 30000;
 
                     _connection = new AMIConnection(Options);
-                    _connection.Events.FireAllEvents = false;
                 }
             }
 
-            if (!_connection.IsConnected)
-            {                
-                await _connection.Login(cancellationToken);
-
-                // _logger.LogInformation("MANAGER: {text}; ASTERISK: {enum}", _connection.Version, _connection.AsteriskVersion);
-            }
+            if (!_connection.IsConnected)                           
+                await _connection.Login(cancellationToken);            
 
             return _connection;
         }
