@@ -171,7 +171,7 @@ namespace Sufficit.Asterisk.Manager
             var port = Options.Port;
             var username = Options.Username;
             
-            _logger.LogError("AMI Connection lost! Host: {Host}:{Port}, User: {Username}, Cause: {Cause}, Permanent: {IsPermanent}",
+            _logger.LogWarning("AMI Connection lost! Host: {Host}:{Port}, User: {Username}, Cause: {Cause}, Permanent: {IsPermanent}",
                 address, port, username, e.Cause, e.IsPermanent);
         }
 
