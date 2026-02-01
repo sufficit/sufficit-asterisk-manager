@@ -22,7 +22,6 @@ jobs:
         dotnet-version: |
           2.2.x
           7.0.x
-          8.0.x
           9.0.x
                 
     - name: Install dependencies
@@ -31,11 +30,11 @@ jobs:
       
     - name: Build
       working-directory: ${{ env.SRC_DIR }}
-      run: dotnet build --configuration Packing
+      run: dotnet build --configuration Release
       
     - name: Deploy Package 
       working-directory: ${{ env.SRC_DIR }}
-      run: dotnet pack --configuration Packing --output ${{ env.NUPKGS_DIR }}
+      run: dotnet pack --configuration Release --output ${{ env.NUPKGS_DIR }}
     
     - name: Publish to Nuget.Org
       working-directory: ${{ env.SRC_DIR }}

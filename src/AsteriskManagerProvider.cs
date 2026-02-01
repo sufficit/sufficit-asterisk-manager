@@ -138,13 +138,41 @@ namespace Sufficit.Asterisk.Manager
                     Options.ReconnectIntervalMax = 30000;
 
                     _connection = new AMIConnection(Options);
+                    
+                    // Subscribe to connection events for diagnostic logging
+                    _connection.OnDisconnected += HandleConnectionDisconnected;
                 }
             }
 
-            if (!_connection.IsConnected)                           
-                await _connection.Login(cancellationToken);            
+            if (!_connection.IsConnected)
+            {
+                try
+                {
+                    await _connection.Login(cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    // Log authentication/connection failures with server details
+                    _logger.LogError(ex, "AMI Connection failed! Host: {Host}:{Port}, User: {Username}",
+                        Options.Address, Options.Port, Options.Username);
+                    throw; // Re-throw to maintain original behavior
+                }
+            }
 
             return _connection;
+        }
+        
+        /// <summary>
+        /// Handles connection disconnect events and logs diagnostic information
+        /// </summary>
+        private void HandleConnectionDisconnected(object? sender, Connection.DisconnectEventArgs e)
+        {
+            var address = Options.Address;
+            var port = Options.Port;
+            var username = Options.Username;
+            
+            _logger.LogWarning("AMI Connection lost! Host: {Host}:{Port}, User: {Username}, Cause: {Cause}, Permanent: {IsPermanent}",
+                address, port, username, e.Cause, e.IsPermanent);
         }
 
         private Task InternalDisconnect(CancellationToken cancellationToken = default)
@@ -196,6 +224,9 @@ namespace Sufficit.Asterisk.Manager
                         // Clean up the connection if it exists.
                         if (_connection != null)
                         {
+                            // Unsubscribe from events
+                            _connection.OnDisconnected -= HandleConnectionDisconnected;
+                            
                             // Attempt to log off, but don't block. Use a timeout.
                             // If the task doesn't complete in time, we just continue.
                             if (_connection.IsConnected)
@@ -262,6 +293,9 @@ namespace Sufficit.Asterisk.Manager
                 // Dispose the connection.
                 if (_connection != null)
                 {
+                    // Unsubscribe from events
+                    _connection.OnDisconnected -= HandleConnectionDisconnected;
+                    
                     _connection.Dispose();
                     _connection = null;
                 }
