@@ -56,7 +56,16 @@ namespace Sufficit.Asterisk.Manager
         {
             _handlers = new ConcurrentDictionary<string, ManagerInvokable>();
             _dispatchCache = new ConcurrentDictionary<Type, ICollection<ManagerInvokable>>();
-            _eventChannel = Channel.CreateUnbounded<Tuple<object?, IManagerEvent>>(new UnboundedChannelOptions { SingleReader = true });
+
+            // Bounded channel prevents unbounded memory growth when handlers are slow.
+            // DropOldest discards stale events rather than accumulating them indefinitely.
+            const int CHANNEL_CAPACITY = 10_000;
+            _eventChannel = Channel.CreateBounded<Tuple<object?, IManagerEvent>>(
+                new BoundedChannelOptions(CHANNEL_CAPACITY)
+                {
+                    FullMode = BoundedChannelFullMode.DropOldest,
+                    SingleReader = true
+                });
             _cancellationTokenSource = new CancellationTokenSource();
 
             // Start the consumer on a dedicated thread to prevent thread pool starvation
@@ -208,63 +217,62 @@ namespace Sufficit.Asterisk.Manager
         }
 
         /// <summary>
-        /// Internal method that actually dispatches events to registered handlers.
-        /// The entire dispatch logic for an event is queued on the thread pool to prevent
-        /// the consumer loop from blocking.
+        /// Internal method that dispatches events to registered handlers synchronously
+        /// on the dedicated LongRunning consumer thread.
+        /// Handlers must be fast (fire-and-forget async or channel enqueue) to avoid blocking.
         /// </summary>
         /// <param name="sender">The source of the event</param>
         /// <param name="e">The event to dispatch</param>
         private void DispatchInternal(object? sender, IManagerEvent e)
         {
-            // Queue the entire dispatch logic to the thread pool.
-            _ = Task.Run(() =>
+            // Execute dispatch directly on the dedicated LongRunning consumer thread.
+            // Handlers are expected to be fast (fire-and-forget async or channel enqueue).
+            // Using Task.Run per event created closures that accumulated in the thread pool
+            // queue, contributing to unnecessary gen2 heap growth.
+            if (IsDisposed) return;
+
+            var eventType = e.GetType();
+            bool wasHandled = false;
+
+            // Get the list of handlers for this event type from the cache.
+            // If not in the cache, build it.
+            var applicableHandlers = _dispatchCache.GetOrAdd(eventType, (type) =>
             {
-                // Re-check for disposal, as this runs asynchronously.
-                if (IsDisposed) return;
+                // A handler is applicable if the event type can be assigned to the handler's generic type.
+                // This covers specific, base, and interface handlers in a single, clean check.
+                return _handlers.Values.Where(h =>
+                    h.GetType().GetGenericArguments()[0].IsAssignableFrom(type)
+                ).ToList();
+            });
 
-                var eventType = e.GetType();
-                bool wasHandled = false;
-
-                // Get the list of handlers for this event type from the cache.
-                // If not in the cache, build it.
-                var applicableHandlers = _dispatchCache.GetOrAdd(eventType, (type) =>
-                {
-                    // A handler is applicable if the event type can be assigned to the handler's generic type.
-                    // This covers specific, base, and interface handlers in a single, clean check.
-                    return _handlers.Values.Where(h =>
-                        h.GetType().GetGenericArguments()[0].IsAssignableFrom(type)
-                    ).ToList();
-                });
-
-                if (applicableHandlers.Count > 0)
-                {
-                    wasHandled = true;
-                    foreach (var handler in applicableHandlers)
-                    {
-                        try
-                        {
-                            handler.Invoke(sender, e);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Error in event handler for {EventType} (Handler Key: {HandlerKey})", eventType.Name, handler.Key);
-                        }
-                    }
-                }
-
-                // Fire unhandled event if no specific handlers and UnhandledEvent is set
-                if (!wasHandled && UnhandledEvent != null)
+            if (applicableHandlers.Count > 0)
+            {
+                wasHandled = true;
+                foreach (var handler in applicableHandlers)
                 {
                     try
                     {
-                        UnhandledEvent.Invoke(sender, e);
+                        handler.Invoke(sender, e);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error in unhandled event handler for {EventType}", e.GetType().Name);
+                        _logger.LogError(ex, "Error in event handler for {EventType} (Handler Key: {HandlerKey})", eventType.Name, handler.Key);
                     }
                 }
-            });
+            }
+
+            // Fire unhandled event if no specific handlers and UnhandledEvent is set
+            if (!wasHandled && UnhandledEvent != null)
+            {
+                try
+                {
+                    UnhandledEvent.Invoke(sender, e);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error in unhandled event handler for {EventType}", e.GetType().Name);
+                }
+            }
         }
 
         #endregion
