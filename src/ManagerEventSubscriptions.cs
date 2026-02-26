@@ -58,13 +58,13 @@ namespace Sufficit.Asterisk.Manager
             _dispatchCache = new ConcurrentDictionary<Type, ICollection<ManagerInvokable>>();
 
             // Bounded vs Unbounded channel:
-            // - Unbounded: nunca bloqueia o produtor, mas a fila cresce infinitamente se o consumer
-            //   ficar lento. Com muitos eventos AMI, isso acumula objetos no heap gen2 sem limite.
-            // - Bounded + DropOldest: também nunca bloqueia o produtor (TryWrite retorna imediato),
-            //   mas limita a memória a no máximo CHANNEL_CAPACITY eventos enfileirados.
-            //   Se a fila encher, o evento mais antigo é descartado para dar lugar ao novo.
-            //   Eventos AMI são notificações de estado — perder os mais antigos é aceitável,
-            //   pois eventos posteriores refletem o estado mais recente do Asterisk.
+            // - Unbounded: never blocks the producer, but the queue grows indefinitely if the consumer
+            //   falls behind. Under high AMI event load, this accumulates objects in gen2 heap without limit.
+            // - Bounded + DropOldest: also never blocks the producer (TryWrite returns immediately),
+            //   but caps memory usage at CHANNEL_CAPACITY queued events.
+            //   When full, the oldest event is dropped to make room for the new one.
+            //   AMI events are state notifications — dropping the oldest is acceptable
+            //   because later events always reflect the most current state of Asterisk.
             const int CHANNEL_CAPACITY = 10_000;
             _eventChannel = Channel.CreateBounded<Tuple<object?, IManagerEvent>>(
                 new BoundedChannelOptions(CHANNEL_CAPACITY)
