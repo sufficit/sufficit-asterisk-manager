@@ -116,7 +116,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// <param name="value">Value to work on</param>
         /// <param name="match">Extra match required to match line</param>
         /// <param name="options">Extra match required to match line</param>
-        public void AddCommand(string action, string category, string variable, string value, string match, string options)
+        public void AddCommand(string? action, string? category, string? variable, string? value, string? match, string? options)
         {
             var i = actionCounter++;
             var index = i.ToString().PadLeft(6, '0');
