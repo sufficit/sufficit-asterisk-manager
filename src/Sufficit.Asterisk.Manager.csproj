@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup Label="Sufficit Targeting">
-		<TargetFrameworks>netstandard2.0;net7.0;net9.0</TargetFrameworks>
+		<TargetFrameworks>netstandard2.0;net7.0;net9.0;net10.0</TargetFrameworks>
 		<RootNamespace>Sufficit.Asterisk.Manager</RootNamespace>
 		<Configurations>Debug;Release</Configurations>
 	</PropertyGroup>
@@ -103,6 +103,13 @@
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
+	<PropertyGroup Label="Sufficit Versioning Options" Condition=" '$(TargetFramework)' == 'net10.0' ">
+		<PkgVersion>[10.*,11.0.0)</PkgVersion>
+		<PkgVersionUntil8>[*,11.0.0)</PkgVersionUntil8>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
 	<!-- #endregion -->
 
 	<ItemGroup>
@@ -116,7 +123,7 @@
 		<PackageReference Include="Microsoft.Extensions.Options" Version="$(PkgVersion)" />
 		<PackageReference Include="System.ComponentModel.Annotations" Version="*" /> <!-- Supports all versions -->
 		<PackageReference Include="System.Text.Json" Version="[8.0.5,9.0.0)" Condition=" '$(TargetFramework)' == 'net6.0' OR '$(TargetFramework)' == 'net7.0' " />
-		<PackageReference Include="System.Text.Json" Version="$(PkgVersion)" Condition=" '$(TargetFramework)' == 'net9.0' OR '$(TargetFramework)' == 'netstandard2.0' " />
+		<PackageReference Include="System.Text.Json" Version="$(PkgVersion)" Condition=" '$(TargetFramework)' == 'net9.0' OR '$(TargetFramework)' == 'net10.0' OR '$(TargetFramework)' == 'netstandard2.0' " />
 		<PackageReference Include="System.Threading.Channels" Version="$(PkgVersionUntil8)" />
 	</ItemGroup>
 	
