@@ -52,32 +52,32 @@
             get { return "AOCMessage"; }
         }
 
-        public string Channel { get; set; }
+        public string Channel { get; set; } = string.Empty;
 
-        public string ChannelPrefix { get; set; }
+        public string ChannelPrefix { get; set; } = string.Empty;
 
-        public string MsgType { get; set; }
+        public string MsgType { get; set; } = string.Empty;
 
-        public string ChargeType { get; set; }
+        public string ChargeType { get; set; } = string.Empty;
 
         public int UnitAmount { get; set; }
 
         public int UnitType { get; set; }
 
-        public string CurrencyName { get; set; }
+        public string CurrencyName { get; set; } = string.Empty;
 
-        public string CurrencyAmount { get; set; }
+        public string CurrencyAmount { get; set; } = string.Empty;
 
-        public string CurrencyMultiplier { get; set; }
+        public string CurrencyMultiplier { get; set; } = string.Empty;
 
-        public string TotalType { get; set; }
+        public string TotalType { get; set; } = string.Empty;
 
-        public string AocBillingId { get; set; }
+        public string AocBillingId { get; set; } = string.Empty;
 
-        public string ChargingAssociationId { get; set; }
+        public string ChargingAssociationId { get; set; } = string.Empty;
 
-        public string ChargingAssociationNumber { get; set; }
+        public string ChargingAssociationNumber { get; set; } = string.Empty;
 
-        public string ChargingrAssociationPlan { get; set; }
+        public string ChargingrAssociationPlan { get; set; } = string.Empty;
     }
 }

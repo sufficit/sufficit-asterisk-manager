@@ -245,6 +245,6 @@ namespace Sufficit.Asterisk.Manager.Action
         /// - Monitor bandwidth with "on" in production
         /// - Consider application requirements vs. performance
         /// </remarks>
-        public string EventMask { get; set; }
+        public string EventMask { get; set; } = string.Empty;
     }
 }

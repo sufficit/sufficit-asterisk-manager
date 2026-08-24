@@ -197,7 +197,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// - Implementation should handle unknown algorithm errors
         /// - Consider fallback to MD5 for compatibility
         /// </remarks>
-        public string AuthType { get; set; }
+        public string AuthType { get; set; } = string.Empty;
 
         /// <summary>
         /// Returns the response type for this action.

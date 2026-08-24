@@ -17,8 +17,8 @@ namespace Sufficit.Asterisk.Manager.Action
             Command = command;
         }
 
-        public string Channel { get; set; }
-        public string Command { get; set; }
+        public string Channel { get; set; } = string.Empty;
+        public string Command { get; set; } = string.Empty;
 
         /// <summary>
         ///     Get the name of this action, i.e. "AGI".

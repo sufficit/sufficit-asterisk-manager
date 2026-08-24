@@ -18,6 +18,6 @@ namespace Sufficit.Asterisk.Manager.Action
             get { return "QueueRule"; }
         }
 
-        public string Rule { get; set; }
+        public string Rule { get; set; } = string.Empty;
     }
 }

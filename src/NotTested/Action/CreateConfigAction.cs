@@ -27,6 +27,6 @@ namespace Sufficit.Asterisk.Manager.Action
             get { return "CreateConfig"; }
         }
 
-        public string Filename { get; set; }
+        public string Filename { get; set; } = string.Empty;
     }
 }

@@ -153,7 +153,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// The channel must exist and be in an appropriate state for bridging.
         /// Use Status action or channel events to verify channel state before bridging.
         /// </remarks>
-        public string Channel1 { get; set; }
+        public string Channel1 { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the second channel to bridge.
@@ -184,7 +184,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// The second channel must exist and be in an appropriate state for bridging.
         /// Both channels will be connected bidirectionally for audio exchange.
         /// </remarks>
-        public string Channel2 { get; set; }
+        public string Channel2 { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets whether to play a tone during bridge establishment.

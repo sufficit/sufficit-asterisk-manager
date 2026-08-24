@@ -194,7 +194,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// The channel must exist and be in an appropriate state for redirection.
         /// Some channel states may not support redirection.
         /// </remarks>
-        public string Channel { get; set; }
+        public string Channel { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the new dialplan context.
@@ -223,7 +223,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// - Check dialplan include statements
         /// - Verify context exists before redirect
         /// </remarks>
-        public string Context { get; set; }
+        public string Context { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the new dialplan extension.
@@ -252,7 +252,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// - Case-sensitive for named extensions
         /// - Pattern matching follows Asterisk rules
         /// </remarks>
-        public string Exten { get; set; }
+        public string Exten { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the new dialplan priority.
@@ -285,7 +285,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// - Avoid hardcoded high numbers
         /// - Consider using "n" for maintainability
         /// </remarks>
-        public string Priority { get; set; }
+        public string Priority { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the extra channel for dual redirect.

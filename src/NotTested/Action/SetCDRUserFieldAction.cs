@@ -53,13 +53,13 @@ namespace Sufficit.Asterisk.Manager.Action
         ///     Get/Set the name of the channel to set the cdr user field on.<br />
         ///     This property is mandatory.
         /// </summary>
-        public string Channel { get; set; }
+        public string Channel { get; set; } = string.Empty;
 
         /// <summary>
         ///     Get/Set the value of the cdr user field to set or append.<br />
         ///     This property is mandatory.
         /// </summary>
-        public string UserField { get; set; }
+        public string UserField { get; set; } = string.Empty;
 
         /// <summary>
         ///     Get/Set if the value of the cdr user field is appended or overwritten.<br />

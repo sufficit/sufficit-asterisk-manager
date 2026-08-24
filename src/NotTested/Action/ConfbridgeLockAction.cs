@@ -20,7 +20,7 @@ namespace Sufficit.Asterisk.Manager.Action
             Conference = conference;
         }
 
-        public string Conference { get; set; }
+        public string Conference { get; set; } = string.Empty;
 
         public override string Action
         {

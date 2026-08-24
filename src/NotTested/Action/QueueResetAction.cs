@@ -25,6 +25,6 @@ namespace Sufficit.Asterisk.Manager.Action
             get { return "QueueReset"; }
         }
 
-        public string Queue { get; set; }
+        public string Queue { get; set; } = string.Empty;
     }
 }

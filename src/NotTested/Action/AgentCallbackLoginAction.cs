@@ -57,18 +57,18 @@ namespace Sufficit.Asterisk.Manager.Action
         ///     Get/Set the name of the agent to log in, for example "1002".<br />
         ///     This is property is mandatory.
         /// </summary>
-        public string Agent { get; set; }
+        public string Agent { get; set; } = string.Empty;
 
         /// <summary>
         ///     Get/Set the extension to use for callback.<br />
         ///     This is property is mandatory.
         /// </summary>
-        public string Exten { get; set; }
+        public string Exten { get; set; } = string.Empty;
 
         /// <summary>
         ///     Get/Set the context of the extension to use for callback.
         /// </summary>
-        public string Context { get; set; }
+        public string Context { get; set; } = string.Empty;
 
         /// <summary>
         ///     Get/Set if an acknowledgement is needed when agent is called back.<br />

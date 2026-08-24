@@ -29,12 +29,12 @@ namespace Sufficit.Asterisk.Manager.Action
             get { return "QueueReload"; }
         }
 
-        public string Queue { get; set; }
+        public string Queue { get; set; } = string.Empty;
 
-        public string Members { get; set; }
+        public string Members { get; set; } = string.Empty;
 
-        public string Rules { get; set; }
+        public string Rules { get; set; } = string.Empty;
 
-        public string Parameters { get; set; }
+        public string Parameters { get; set; } = string.Empty;
     }
 }

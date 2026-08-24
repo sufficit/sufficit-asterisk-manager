@@ -148,7 +148,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// The channel must exist and be in an active state.
         /// Invalid or non-existent channels will result in an error response.
         /// </remarks>
-        public string Channel { get; set; }
+        public string Channel { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the hangup cause code.

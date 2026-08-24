@@ -34,21 +34,21 @@ namespace Sufficit.Asterisk.Manager.Action
         /// <summary>
         ///     Transferer's channel.
         /// </summary>
-        public string Channel { get; set; }
+        public string Channel { get; set; } = string.Empty;
 
         /// <summary>
         ///     Extension to transfer to.
         /// </summary>
-        public string Exten { get; set; }
+        public string Exten { get; set; } = string.Empty;
 
         /// <summary>
         ///     Context to transfer to.
         /// </summary>
-        public string Context { get; set; }
+        public string Context { get; set; } = string.Empty;
 
         /// <summary>
         ///     Priority to transfer to.
         /// </summary>
-        public string Priority { get; set; }
+        public string Priority { get; set; } = string.Empty;
     }
 }

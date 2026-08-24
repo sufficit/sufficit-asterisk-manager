@@ -24,7 +24,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// <summary>
         /// Add - Add a filter
         /// </summary>
-        public string Operation { get; set; }
+        public string Operation { get; set; } = string.Empty;
 
         #endregion
 
@@ -35,7 +35,7 @@ namespace Sufficit.Asterisk.Manager.Action
         /// Example whitelist filter: "Event: Newchannel"
         /// Example blacklist filter: "!Channel: DAHDI.*"
         /// </summary>
-        public string Filter { get; set; }
+        public string Filter { get; set; } = string.Empty;
 
         #endregion
 

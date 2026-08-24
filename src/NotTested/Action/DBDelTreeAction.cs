@@ -31,11 +31,11 @@ namespace Sufficit.Asterisk.Manager.Action
         /// <summary>
         ///     Get/Set the the Family of the entry to delete.
         /// </summary>
-        public string Family { get; set; }
+        public string Family { get; set; } = string.Empty;
 
         /// <summary>
         ///     Get/Set the the key of the entry to delete.
         /// </summary>
-        public string Key { get; set; }
+        public string Key { get; set; } = string.Empty;
     }
 }

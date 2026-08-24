@@ -37,6 +37,6 @@ namespace Sufficit.Asterisk.Manager.Action
         ///     Get/Set the number to dial.<br />
         ///     This property is mandatory.
         /// </summary>
-        public string Number { get; set; }
+        public string Number { get; set; } = string.Empty;
     }
 }

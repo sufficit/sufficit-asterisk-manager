@@ -31,7 +31,7 @@ namespace Sufficit.Asterisk.Manager.Action
         ///     This is property is mandatory.
         /// </summary>
         /// <param name="agent">the name of the agent to log off</param>
-        public string Agent { get; set; }
+        public string Agent { get; set; } = string.Empty;
 
         #endregion
 

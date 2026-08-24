@@ -31,14 +31,14 @@ namespace Sufficit.Asterisk.Manager.Action
             get { return "QueueLog"; }
         }
 
-        public string Queue { get; set; }
+        public string Queue { get; set; } = string.Empty;
 
-        public string Event { get; set; }
+        public string Event { get; set; } = string.Empty;
 
-        public string Uniqueid { get; set; }
+        public string Uniqueid { get; set; } = string.Empty;
 
-        public string Interface { get; set; }
+        public string Interface { get; set; } = string.Empty;
 
-        public string Message { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 }

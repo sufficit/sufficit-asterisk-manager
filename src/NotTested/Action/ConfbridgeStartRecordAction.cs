@@ -24,9 +24,9 @@ namespace Sufficit.Asterisk.Manager.Action
             Conference = conference;
         }
 
-        public string Conference { get; set; }
+        public string Conference { get; set; } = string.Empty;
 
-        public string RecordFile { get; set; }
+        public string RecordFile { get; set; } = string.Empty;
 
         public override string Action
         {
