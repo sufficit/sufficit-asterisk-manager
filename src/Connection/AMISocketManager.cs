@@ -77,13 +77,21 @@ namespace Sufficit.Asterisk.Manager.Connection
         public event EventHandler<DisconnectEventArgs>? OnDisconnected;
         public event EventHandler<IDictionary<string, string>>? OnPacketReceived;
 
+        private int _receiveLimitExceeded;
+        private int _requiresReplacement;
+        /// <summary>A terminal receive fault. A supervisor must create a new connection instance.</summary>
+        public bool ReceiveLimitExceeded => Volatile.Read(ref _receiveLimitExceeded) != 0;
+        public bool RequiresReplacement => Volatile.Read(ref _requiresReplacement) != 0;
+
         public AMISocketManager (ManagerConnectionParameters parameters)
         {
+            parameters.ValidateReceiveLimits();
             _parameters = parameters;
         }
 
         public async Task<bool> Connect (CancellationToken cancellationToken)
         {
+            if (ReceiveLimitExceeded || RequiresReplacement) throw new InvalidOperationException("Ended receive generation must be replaced");
             lock (_connectionLock)
             {
                 if (IsConnected || IsDisposed) return IsConnected;
@@ -167,9 +175,12 @@ namespace Sufficit.Asterisk.Manager.Connection
                     return false;
                 }
 
-                var options = new AGISocketOptions { Encoding = _parameters.SocketEncoding };
+                var options = new AGISocketOptions { Encoding = _parameters.SocketEncoding,
+                    ReceiveLineCapacity = _parameters.ReceiveLineCapacity,
+                    ReceiveMaxLineChars = _parameters.ReceiveMaxLineChars };
                 _socket = new AISingleSocketHandler(_logger, options, connectedSocket, _managerCts.Token);
                 _socket.OnDisconnected += OnSocketDisconnected;
+                if (_socket.ReceiveLimitExceeded) { FailReceiveLimit(); return false; }
 
                 // Reset the disconnect event flag for the new connection
                 _disconnectEventTriggered = false;
@@ -201,6 +212,7 @@ namespace Sufficit.Asterisk.Manager.Connection
             _logger.LogTrace("packet processing queue consumer started.");
             var packet = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var commandList = new List<string>();
+            long packetChars = 0;
             bool isProcessingCommandResult = false;
             bool isWaitingForIdentifier = true;
 
@@ -211,6 +223,14 @@ namespace Sufficit.Asterisk.Manager.Connection
                 {
                     // The logic inside the loop remains exactly the same as before.
                     if (line == null) continue;
+                    if (ReceiveLimitExceeded || RequiresReplacement) break;
+
+                    if (_parameters.ReceiveMaxPacketChars > 0)
+                    {
+                        packetChars += line.Length + 2;
+                        if (packetChars > _parameters.ReceiveMaxPacketChars)
+                        { FailReceiveLimit(); break; }
+                    }
 
                     if (isWaitingForIdentifier)
                     {
@@ -218,6 +238,7 @@ namespace Sufficit.Asterisk.Manager.Connection
                         {
                             isWaitingForIdentifier = false;
                             HandleConnectionIdentified(line);
+                            packetChars = 0;
                         }
                         continue;
                     }
@@ -252,6 +273,7 @@ namespace Sufficit.Asterisk.Manager.Connection
                             HandlePacketReceived(new Dictionary<string, string>(packet, StringComparer.OrdinalIgnoreCase));
                             packet.Clear();
                         }
+                        packetChars = 0;
                     }
                 }
             }
@@ -271,6 +293,7 @@ namespace Sufficit.Asterisk.Manager.Connection
 
         private void OnSocketDisconnected(object? sender, AGISocketReason e)
         {
+            if (_socket?.ReceiveLimitExceeded == true) { FailReceiveLimit(); return; }
             _logger.LogInformation("OnSocketDisconnected triggered: {Reason}", e);
             
             if (_socket != null)
@@ -282,6 +305,13 @@ namespace Sufficit.Asterisk.Manager.Connection
 
             _logger.LogInformation("Calling Disconnect with reason: {Reason}, isPermanent: {IsPermanent}", e, isPermanent);
             Disconnect("Socket disconnected: " + e.ToString(), isPermanent);
+        }
+
+        protected void FailReceiveLimit()
+        {
+            if (Interlocked.Exchange(ref _receiveLimitExceeded, 1) != 0) return;
+            _logger.LogWarning("AMI receive limit exceeded; connection quarantined, pending state requires reconciliation");
+            Disconnect("ReceiveLimitExceeded", isPermanent: true);
         }
 
         /// <summary>
@@ -382,6 +412,12 @@ namespace Sufficit.Asterisk.Manager.Connection
 
         protected virtual void OnDisconnectedTrigger(DisconnectEventArgs args)
         {
+            if (_parameters.ReceivePacketCapacity > 0)
+            {
+                Interlocked.Exchange(ref _requiresReplacement, 1);
+                // The supervisor, not the old socket reconnector, owns the next generation.
+                args.IsPermanent = true;
+            }
             // Prevent multiple disconnect events for the same disconnection
             if (_disconnectEventTriggered)
             {

@@ -291,6 +291,10 @@ namespace Sufficit.Asterisk.Manager.Services
             }
 
             connection.OnDisconnected += OnDisconnected;
+            // A bounded receiver can fail between login and subscription. Do not wait
+            // forever for a disconnect event that has already happened.
+            if (!connection.IsConnected || !connection.IsAuthenticated)
+                tcs.TrySetResult(true);
 
             try
             {

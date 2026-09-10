@@ -52,8 +52,14 @@ namespace Sufficit.Asterisk.Manager
         /// Default constructor for standard usage (created by ManagerConnection).
         /// Will be disposed automatically when the connection is disposed.
         /// </summary>
-        public ManagerEventSubscriptions()
+        public ManagerEventSubscriptions() : this(10_000, false) { }
+
+        public bool RejectWhenFull { get; }
+
+        public ManagerEventSubscriptions(int capacity, bool rejectWhenFull)
         {
+            if (capacity < 1 || capacity > 65536) throw new ArgumentOutOfRangeException(nameof(capacity));
+            RejectWhenFull = rejectWhenFull;
             _handlers = new ConcurrentDictionary<string, ManagerInvokable>();
             _dispatchCache = new ConcurrentDictionary<Type, ICollection<ManagerInvokable>>();
 
@@ -63,13 +69,12 @@ namespace Sufficit.Asterisk.Manager
             // - Bounded + DropOldest: also never blocks the producer (TryWrite returns immediately),
             //   but caps memory usage at CHANNEL_CAPACITY queued events.
             //   When full, the oldest event is dropped to make room for the new one.
-            //   AMI events are state notifications — dropping the oldest is acceptable
-            //   because later events always reflect the most current state of Asterisk.
-            const int CHANNEL_CAPACITY = 10_000;
+            // Legacy lossy mode is preserved for compatibility, not for reliable history:
+            // later events do not necessarily reconstruct a lost lifecycle transition.
             _eventChannel = Channel.CreateBounded<Tuple<object?, IManagerEvent>>(
-                new BoundedChannelOptions(CHANNEL_CAPACITY)
+                new BoundedChannelOptions(capacity)
                 {
-                    FullMode = BoundedChannelFullMode.DropOldest,
+                    FullMode = rejectWhenFull ? BoundedChannelFullMode.Wait : BoundedChannelFullMode.DropOldest,
                     SingleReader = true
                 });
             _cancellationTokenSource = new CancellationTokenSource();
@@ -184,6 +189,14 @@ namespace Sufficit.Asterisk.Manager
             }
         }
 
+        /// <summary>Non-blocking admission for strict receivers; false requires connection quarantine.</summary>
+        public bool TryDispatch(object? sender, IManagerEvent e)
+        {
+            if (!RejectWhenFull) throw new InvalidOperationException("Strict admission requires RejectWhenFull");
+            return !IsDisposed && !_cancellationTokenSource.IsCancellationRequested &&
+                _eventChannel.Writer.TryWrite(Tuple.Create(sender, e));
+        }
+
         /// <summary>
         /// Background task that consumes events from the channel and dispatches them to handlers.
         /// Runs for the lifetime of the subscription system.
@@ -198,6 +211,8 @@ namespace Sufficit.Asterisk.Manager
                 // ReadAllAsync will throw OperationCanceledException when the token is cancelled.
                 await foreach (var (sender, evt) in _eventChannel.Reader.ReadAllAsync(cancellationToken))
                 {
+                    if (RejectWhenFull && sender is Connection.ManagerConnection connection &&
+                        (connection.ReceiveLimitExceeded || connection.RequiresReplacement)) continue;
                     try 
                     { 
                         DispatchInternal(sender, evt); 

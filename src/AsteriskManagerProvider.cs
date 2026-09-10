@@ -132,6 +132,13 @@ namespace Sufficit.Asterisk.Manager
         {
             lock (_lockConnection)
             {
+                // A quarantined receiver must not reconnect with stale queued events.
+                if (_connection is { RequiresReplacement: true } || _connection is { ReceiveLimitExceeded: true })
+                {
+                    _connection.OnDisconnected -= HandleConnectionDisconnected;
+                    _connection.Dispose();
+                    _connection = null;
+                }
                 if (_connection == null || _connection.IsDisposed)
                 {
                     Options.KeepAlive = keepAlive;

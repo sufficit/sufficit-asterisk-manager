@@ -87,17 +87,19 @@ namespace Sufficit.Asterisk.Manager.Connection
         {
             _parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
 
-            // 1. Crie o Channel. Unbounded significa que a fila não tem limite.
-            // Cuidado: em cenários extremos, isso pode consumir memória. 
-            // Para mais controle, use `new BoundedChannelOptions(...)`.
-            _packetChannel = Channel.CreateUnbounded<IDictionary<string, string>>(
-                new UnboundedChannelOptions { SingleReader = true }); // Otimização para um único consumidor
+            // Opt-in bounded reception never waits for a slow application or silently drops frames.
+            _packetChannel = parameters.ReceivePacketCapacity > 0
+                ? Channel.CreateBounded<IDictionary<string, string>>(new BoundedChannelOptions(parameters.ReceivePacketCapacity)
+                    { SingleReader = true, FullMode = BoundedChannelFullMode.Wait })
+                : Channel.CreateUnbounded<IDictionary<string, string>>(new UnboundedChannelOptions { SingleReader = true });
 
             // 2. Inicie a tarefa do consumidor em segundo plano
             _packetConsumerTask = Task.Run(ProcessPacketQueueAsync);
 
             // 3. Create internal event manager - always owned by this connection
-            _internalEvents = new ManagerEventSubscriptions();
+            _internalEvents = parameters.ReceivePacketCapacity > 0
+                ? new ManagerEventSubscriptions(parameters.ReceivePacketCapacity, true)
+                : new ManagerEventSubscriptions();
             
             // updating default delimeters
             VarDelimiters = this.GetDelimiters();
@@ -122,6 +124,7 @@ namespace Sufficit.Asterisk.Manager.Connection
         /// <inheritdoc cref="AMISocketManager.HandlePacketReceived(IDictionary{string, string})"/> 
         protected override void HandlePacketReceived(IDictionary<string, string> packet)
         {
+            if (ReceiveLimitExceeded || RequiresReplacement || IsDisposeRequested) return;
             //_logger.LogTrace("on base packet received, count on channel: {count}, packet: {json}", _queueCounter, packet.ToJson());
 
             // updating timestamp for liveness monitoring
@@ -138,7 +141,8 @@ namespace Sufficit.Asterisk.Manager.Connection
             {
                 // Log de erro se, por algum motivo, não for possível escrever na fila.
                 // Com uma fila Unbounded, isso é muito improvável.
-                _logger.LogError("Failed to write packet to channel. The queue may be closed.");
+                if (_parameters.ReceivePacketCapacity > 0) FailReceiveLimit();
+                else _logger.LogError("Failed to write packet to channel. The queue may be closed.");
             }
         }
 
@@ -157,6 +161,8 @@ namespace Sufficit.Asterisk.Manager.Connection
             {
                 // Decrementa o contador de forma segura para threads
                 Interlocked.Decrement(ref _queueCounter);
+                // Drain old frames without dispatching stale events/responses after a receive fault.
+                if (ReceiveLimitExceeded || RequiresReplacement) continue;
 
                 try
                 {
@@ -171,7 +177,12 @@ namespace Sufficit.Asterisk.Manager.Connection
                             if (eventObject != null)
                             {
                                 // Dispatch to the active events system
-                                currentEvents.Dispatch(this, eventObject.Event);
+                                if (_parameters.ReceivePacketCapacity > 0)
+                                {
+                                    if (!(currentEvents is ManagerEventSubscriptions strict) || !strict.TryDispatch(this, eventObject.Event))
+                                        FailReceiveLimit();
+                                }
+                                else currentEvents.Dispatch(this, eventObject.Event);
                             }
                         }
                         else
@@ -316,6 +327,8 @@ namespace Sufficit.Asterisk.Manager.Connection
         public void Use(IManagerEventSubscriptions events, bool disposable = false)
         {
             if (events == null) throw new ArgumentNullException(nameof(events));
+            if (_parameters.ReceivePacketCapacity > 0 && !(events is ManagerEventSubscriptions { RejectWhenFull: true }))
+                throw new ArgumentException("Bounded receivers require strict external subscriptions", nameof(events));
 
             // If the new event manager is the same instance, no need to replace
             if (ReferenceEquals(_activeEvents, events))
@@ -421,7 +434,7 @@ namespace Sufficit.Asterisk.Manager.Connection
             _authenticator.Dispose();
 
             // Sinalize que não haverá mais itens
-            _packetChannel.Writer.Complete();
+            _packetChannel.Writer.TryComplete();
 
             // Opcional mas recomendado: aguardar a tarefa do consumidor terminar de processar
             // o que já estava na fila. Adicione um timeout para não bloquear para sempre.
