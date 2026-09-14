@@ -122,11 +122,11 @@
 	</ItemGroup>
 	
 	<ItemGroup Label="Sufficit Dependencies">
-		<ProjectReference Include="..\..\sufficit-asterisk-core\src\Sufficit.Asterisk.Core.csproj" Condition="Exists('..\\..\\sufficit-asterisk-core\\src\\Sufficit.Asterisk.Core.csproj')" />
-		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.*" Condition="!Exists('..\\..\\sufficit-asterisk-core\\src\\Sufficit.Asterisk.Core.csproj') "/>
+		<ProjectReference Include="/mnt/sufficit/sufficit-asterisk-core/.worktrees/context-purge-20260914182449/src/Sufficit.Asterisk.Core.csproj" Condition="Exists('/mnt/sufficit/sufficit-asterisk-core/.worktrees/context-purge-20260914182449/src/Sufficit.Asterisk.Core.csproj')" />
+		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.*" Condition="!Exists('/mnt/sufficit/sufficit-asterisk-core/.worktrees/context-purge-20260914182449/src/Sufficit.Asterisk.Core.csproj') "/>
 
-		<ProjectReference Include="..\..\sufficit-asterisk-shared\src\Sufficit.Asterisk.Shared.csproj" Condition="Exists('..\\..\\sufficit-asterisk-shared\\src\\Sufficit.Asterisk.Shared.csproj')" />
-		<PackageReference Include="Sufficit.Asterisk.Shared" Version="1.*" Condition="!Exists('..\\..\\sufficit-asterisk-shared\\src\\Sufficit.Asterisk.Shared.csproj') "/>
+		<ProjectReference Include="/mnt/sufficit/sufficit-asterisk-shared/.worktrees/context-purge-20260914182449/src/Sufficit.Asterisk.Shared.csproj" Condition="Exists('/mnt/sufficit/sufficit-asterisk-shared/.worktrees/context-purge-20260914182449/src/Sufficit.Asterisk.Shared.csproj')" />
+		<PackageReference Include="Sufficit.Asterisk.Shared" Version="1.*" Condition="!Exists('/mnt/sufficit/sufficit-asterisk-shared/.worktrees/context-purge-20260914182449/src/Sufficit.Asterisk.Shared.csproj') "/>
 	</ItemGroup>
 	
 </Project>
