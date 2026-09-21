@@ -122,6 +122,9 @@
 	</ItemGroup>
 	
 	<ItemGroup Label="Sufficit Dependencies">
+		<ProjectReference Include="..\..\sufficit-json\src\Sufficit.Json.csproj" Condition="Exists('..\..\sufficit-json\src\Sufficit.Json.csproj')" />
+		<PackageReference Include="Sufficit.Json" Version="1.*" Condition="!Exists('..\..\sufficit-json\src\Sufficit.Json.csproj')" />
+
 		<ProjectReference Include="..\..\sufficit-asterisk-core\src\Sufficit.Asterisk.Core.csproj" Condition="Exists('..\\..\\sufficit-asterisk-core\\src\\Sufficit.Asterisk.Core.csproj')" />
 		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.*" Condition="!Exists('..\\..\\sufficit-asterisk-core\\src\\Sufficit.Asterisk.Core.csproj') "/>
 
